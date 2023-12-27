@@ -75,7 +75,7 @@ def run_tasks(client_id: int):
                         "volume": _b.volume,
                     }
                 )
-            if len(klines_res) == 0:
+            if not klines_res:
                 continue
             return klines_res
         return []

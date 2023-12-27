@@ -234,14 +234,12 @@ class FX:
             # （获取缠论K线的最高点）
             if qy_type == Config.FX_QY_MIDDLE.value:
                 return self.k.h
-            return max([_ck.h for _ck in self.klines if _ck is not None])
+            return max(_ck.h for _ck in self.klines if _ck is not None)
         elif qj_type == Config.FX_QJ_K.value:
             # （获取原始K线的最高点）
             if qy_type == Config.FX_QY_MIDDLE.value:
-                return max([_k.h for _k in self.k.klines])
-            return max(
-                [_k.h for _ck in self.klines if _ck is not None for _k in _ck.klines]
-            )
+                return max(_k.h for _k in self.k.klines)
+            return max(_k.h for _ck in self.klines if _ck is not None for _k in _ck.klines)
         else:
             raise Exception(f"获取分型高点的区间类型错误 {qj_type}")
 
@@ -252,13 +250,11 @@ class FX:
         if qj_type == Config.FX_QJ_CK.value:
             if qy_type == Config.FX_QY_MIDDLE.value:
                 return self.k.l
-            return min([_ck.l for _ck in self.klines if _ck is not None])
+            return min(_ck.l for _ck in self.klines if _ck is not None)
         elif qj_type == Config.FX_QJ_K.value:
             if qy_type == Config.FX_QY_MIDDLE.value:
-                return min([_k.l for _k in self.k.klines])
-            return min(
-                [_k.l for _ck in self.klines if _ck is not None for _k in _ck.klines]
-            )
+                return min(_k.l for _k in self.k.klines)
+            return min(_k.l for _ck in self.klines if _ck is not None for _k in _ck.klines)
         else:
             raise Exception(f"获取分型低点的区间类型错误 {qj_type}")
 
@@ -377,9 +373,7 @@ class ZS:
         中枢重叠区间占整个中枢区间的百分比，越大说明中枢重叠区域外的波动越小
         """
         zgzd = self.zg - self.zd
-        if zgzd == 0.0:
-            return 0
-        return (zgzd / (self.gg - self.dd)) * 100
+        return 0 if zgzd == 0.0 else (zgzd / (self.gg - self.dd)) * 100
 
     def zs_mmds(self, zs_type="|") -> List[str]:
         """
@@ -509,9 +503,7 @@ class BI(LINE):
     def get_bcs(self, zs_type: str = None) -> List[BC]:
         if zs_type is None:
             return self.bcs
-        if zs_type not in self.zs_type_bcs.keys():
-            return []
-        return self.zs_type_bcs[zs_type]
+        return self.zs_type_bcs[zs_type] if zs_type in self.zs_type_bcs.keys() else []
 
     def add_mmd(self, name: str, zs: ZS, zs_type: str, msg: str = "") -> bool:
         """
@@ -643,16 +635,16 @@ class TZXL:
     @property
     def max(self):
         if self.bh_direction == "up":
-            return max([_l.high for _l in self.lines])
+            return max(_l.high for _l in self.lines)
         else:
-            return min([_l.high for _l in self.lines])
+            return min(_l.high for _l in self.lines)
 
     @property
     def min(self):
         if self.bh_direction == "up":
-            return max([_l.low for _l in self.lines])
+            return max(_l.low for _l in self.lines)
         else:
-            return min([_l.low for _l in self.lines])
+            return min(_l.low for _l in self.lines)
 
     def get_start_fx(self):
         if self.bh_direction == "up":
@@ -1181,8 +1173,7 @@ def query_macd_ld(cd: ICL, start_fx: FX, end_fx: FX):
     """
     if start_fx.index > end_fx.index:
         raise Exception(
-            "%s - %s - %s 计算力度，开始分型不可以大于结束分型"
-            % (cd.get_code(), cd.get_frequency(), cd.get_klines()[-1].date)
+            f"{cd.get_code()} - {cd.get_frequency()} - {cd.get_klines()[-1].date} 计算力度，开始分型不可以大于结束分型"
         )
 
     dea = np.array(
@@ -1235,14 +1226,12 @@ def compare_ld_beichi(one_ld: dict, two_ld: dict, line_direction: str):
     :return:
     """
     hist_key = "sum"
-    if line_direction == "up":
-        hist_key = "up_sum"
-    elif line_direction == "down":
+    if line_direction == "down":
         hist_key = "down_sum"
-    if "macd" not in two_ld.keys() or "macd" not in one_ld.keys():
-        return False
-    if two_ld["macd"]["hist"][hist_key] < one_ld["macd"]["hist"][hist_key]:
-        return True
+    elif line_direction == "up":
+        hist_key = "up_sum"
+    if "macd" in two_ld and "macd" in one_ld:
+        return two_ld["macd"]["hist"][hist_key] < one_ld["macd"]["hist"][hist_key]
     else:
         return False
 
@@ -1267,7 +1256,7 @@ def user_custom_mmd(
     """
     # 清空买卖点与背驰情况，重新计算
 
-    if len(lines) < 4 or len(zss) == 0:
+    if len(lines) < 4 or not zss:
         return False
 
     # 类二类买卖点，如果前一笔同向的线段出现二类买卖点，当前与二类买卖点笔有重叠（形成中枢），不创前一笔的高点或低点，增加类二类买卖点

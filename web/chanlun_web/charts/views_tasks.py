@@ -18,16 +18,17 @@ def index_show(request):
         {"task_name": "futures", "market_type": "futures"},
         {"task_name": "currency", "market_type": "currency"},
     ]
-    res_obj = {}
     task_configs = {}
     for task in task_names:
         task_configs[task["task_name"]] = rd.task_config_query(task["task_name"], False)
         zx = zixuan.ZiXuan(task["market_type"])
         task_configs[task["task_name"]]["zx_list"] = zx.zixuan_list
 
-    res_obj["nav"] = "tasks"
-    res_obj["task_names"] = task_names
-    res_obj["task_configs"] = task_configs
+    res_obj = {
+        "nav": "tasks",
+        "task_names": task_names,
+        "task_configs": task_configs,
+    }
     return render(request, "charts/tasks/index.html", res_obj)
 
 

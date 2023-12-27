@@ -173,7 +173,7 @@ def monitoring_code(
             )
 
     # 沪深A股，增加行业概念信息
-    if market == "a" and len(send_msgs) > 0:
+    if market == "a" and send_msgs:
         hygn = ex.stock_owner_plate(code)
         if len(hygn["HY"]) > 0:
             send_msgs.append("行业 : " + "/".join([_["name"] for _ in hygn["HY"]]))
@@ -181,14 +181,14 @@ def monitoring_code(
             send_msgs.append("概念 : " + "/".join([_["name"] for _ in hygn["GN"]]))
 
     # 添加图片
-    if len(send_msgs) > 0:
+    if send_msgs:
         for cd in cl_datas:
             title = f"{name} - {cd.get_frequency()}"
             image_key = kchart_to_png(market, title, cd, cl_config)
             if image_key != "":
                 send_msgs.append(image_key)
     # 发送消息
-    if len(send_msgs) > 0:
+    if send_msgs:
         send_fs_msg(market, f"{task_name} 监控提醒", send_msgs)
 
     return jh_msgs

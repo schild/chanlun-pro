@@ -100,15 +100,14 @@ class ExchangeTDXHK(Exchange):
             }
             while True:
                 instruments = client.get_instrument_info(start_i, count)
-                for _i in instruments:
-                    if _i["category"] != 2:
-                        continue
-                    __all_stocks.append(
-                        {
-                            "code": f"{market_map_short_names[_i['market']]}.{_i['code']}",
-                            "name": _i["name"],
-                        }
-                    )
+                __all_stocks.extend(
+                    {
+                        "code": f"{market_map_short_names[_i['market']]}.{_i['code']}",
+                        "name": _i["name"],
+                    }
+                    for _i in instruments
+                    if _i["category"] == 2
+                )
                 start_i += count
                 if len(instruments) < count:
                     break
@@ -144,11 +143,7 @@ class ExchangeTDXHK(Exchange):
         """
         if args is None:
             args = {}
-        if "pages" not in args.keys():
-            args["pages"] = 8
-        else:
-            args["pages"] = int(args["pages"])
-
+        args["pages"] = 8 if "pages" not in args.keys() else int(args["pages"])
         frequency_map = {
             "y": 11,
             "q": 10,
@@ -226,8 +221,7 @@ class ExchangeTDXHK(Exchange):
             klines_df = klines_df[
                 ["code", "date", "open", "close", "high", "low", "volume"]
             ]
-            klines_df = self.klines_qfq(code, klines_df)
-            return klines_df
+            return self.klines_qfq(code, klines_df)
         except TdxConnectionError:
             print("连接失败，重新选择最优服务器")
             self.reset_tdx_ip()
@@ -244,10 +238,10 @@ class ExchangeTDXHK(Exchange):
         获取股票名称
         """
         all_stock = self.all_stocks()
-        stock = [_s for _s in all_stock if _s["code"] == code]
-        if not stock:
+        if stock := [_s for _s in all_stock if _s["code"] == code]:
+            return {"code": stock[0]["code"], "name": stock[0]["name"]}
+        else:
             return None
-        return {"code": stock[0]["code"], "name": stock[0]["name"]}
 
     def ticks(self, codes: List[str]) -> Dict[str, Tick]:
         """
@@ -298,13 +292,11 @@ class ExchangeTDXHK(Exchange):
         """
         hour = int(time.strftime("%H"))
         minute = int(time.strftime("%M"))
-        if (
+        return (
             hour in {9, 10, 11, 14, 21, 22, 23, 0, 1}
             or (hour == 13 and minute >= 30)
             or (hour == 2 and minute <= 30)
-        ):
-            return True
-        return False
+        )
 
     def klines_qfq(self, code: str, klines: pd.DataFrame):
         try:

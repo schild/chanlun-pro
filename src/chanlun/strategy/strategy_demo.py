@@ -48,25 +48,20 @@ class StrategyDemo(Strategy):
             if 'sell' in mmd and price > ck_kline_2_low:
                 continue
 
-            if self._max_loss_rate is not None:
-                if 'buy' in mmd:
-                    loss_price = price - (price * (abs(self._max_loss_rate) / 100))
-                    loss_price = max(loss_price, ck_kline_2_low)
-                else:
-                    loss_price = price + (price * (abs(self._max_loss_rate) / 100))
-                    loss_price = min(loss_price, ck_kline_2_high)
+            if self._max_loss_rate is None:
+                loss_price = ck_kline_2_low if 'buy' in mmd else ck_kline_2_high
+            elif 'buy' in mmd:
+                loss_price = price - (price * (abs(self._max_loss_rate) / 100))
+                loss_price = max(loss_price, ck_kline_2_low)
             else:
-                if 'buy' in mmd:
-                    loss_price = ck_kline_2_low
-                else:
-                    loss_price = ck_kline_2_high
-
+                loss_price = price + (price * (abs(self._max_loss_rate) / 100))
+                loss_price = min(loss_price, ck_kline_2_high)
             opts.append(
                 Operation(
                     opt='buy',
                     mmd=mmd,
                     loss_price=loss_price,
-                    msg='当前级别 (MMD: %s Loss: %s) ' % (bi_now.line_mmds(), loss_price),
+                    msg=f'当前级别 (MMD: {bi_now.line_mmds()} Loss: {loss_price}) ',
                     info={
                         'fx_datetime': bi_now.end.k.date,
                         'cl_datas': {
@@ -90,47 +85,47 @@ class StrategyDemo(Strategy):
         price = data_now.get_klines()[-1].c
 
         # 止盈止损检查
-        if 'buy' in mmd:
-            if price < pos.loss_price:
-                return Operation('sell', mmd, msg='%s 止损' % mmd)
-        elif 'sell' in mmd:
-            if price > pos.loss_price:
-                return Operation('sell', mmd, msg='%s 止损' % mmd)
-
+        if (
+            'buy' in mmd
+            and price < pos.loss_price
+            or 'buy' not in mmd
+            and 'sell' in mmd
+            and price > pos.loss_price
+        ):
+            return Operation('sell', mmd, msg=f'{mmd} 止损')
         # 自建仓之后的反向笔
         pos_bi_now: BI
         pos_bi_now = pos.info['cl_datas']['bi_now']
-        next_bi_now = None
-        for _bi in data_now.get_bis()[::-1]:
-            if _bi.start.k.date > pos_bi_now.start.k.date and _bi.type != pos_bi_now.type and _bi.is_done():
-                next_bi_now = _bi
-                break
+        next_bi_now = next(
+            (
+                _bi
+                for _bi in data_now.get_bis()[::-1]
+                if _bi.start.k.date > pos_bi_now.start.k.date
+                and _bi.type != pos_bi_now.type
+                and _bi.is_done()
+            ),
+            None,
+        )
         if next_bi_now is None:
             return None
 
         if 'buy' in mmd:
-            # 买入做多，检查卖点，笔向上，出现停顿，并且出现 卖点或背驰
             if next_bi_now.type == 'up' and self.bi_td(next_bi_now, data_now) and \
-                    (next_bi_now.mmd_exists(['1sell', '2sell', 'l2sell', '3sell', 'l3sell']) or
+                        (next_bi_now.mmd_exists(['1sell', '2sell', 'l2sell', '3sell', 'l3sell']) or
                      next_bi_now.bc_exists(['bi', 'pz', 'qs'])):
                 return Operation(
                     opt='sell',
                     mmd=mmd,
-                    msg='%s 当前级别出现卖点（MMDS: %s，BC：（BI: %s, PZ: %s, QS: %s）），多仓清仓' %
-                        (mmd, next_bi_now.line_mmds(), next_bi_now.bc_exists(['bi']),
-                         next_bi_now.bc_exists(['pz']), next_bi_now.bc_exists(['qs']))
+                    msg=f"{mmd} 当前级别出现卖点（MMDS: {next_bi_now.line_mmds()}，BC：（BI: {next_bi_now.bc_exists(['bi'])}, PZ: {next_bi_now.bc_exists(['pz'])}, QS: {next_bi_now.bc_exists(['qs'])}）），多仓清仓",
                 )
 
-        if 'sell' in mmd:
-            # 买入做空，检查买点，笔向下，出现停顿，并且出现 买点或背驰
-            if next_bi_now.type == 'down' and self.bi_td(next_bi_now, data_now) and \
-                    (next_bi_now.mmd_exists(['1buy', '2buy', 'l2buy', '3buy', 'l3buy']) or
+        if next_bi_now.type == 'down' and self.bi_td(next_bi_now, data_now) and \
+                        (next_bi_now.mmd_exists(['1buy', '2buy', 'l2buy', '3buy', 'l3buy']) or
                      next_bi_now.bc_exists(['bi', 'pz', 'qs'])):
+            if 'sell' in mmd:
                 return Operation(
                     opt='sell',
                     mmd=mmd,
-                    msg='%s 当前级别出现买点（MMDS: %s，BC：（BI: %s, PZ: %s, QS: %s）），空仓清仓' %
-                        (mmd, next_bi_now.line_mmds(), next_bi_now.bc_exists(['bi']),
-                         next_bi_now.bc_exists(['pz']), next_bi_now.bc_exists(['qs']))
+                    msg=f"{mmd} 当前级别出现买点（MMDS: {next_bi_now.line_mmds()}，BC：（BI: {next_bi_now.bc_exists(['bi'])}, PZ: {next_bi_now.bc_exists(['pz'])}, QS: {next_bi_now.bc_exists(['qs'])}）），空仓清仓",
                 )
         return None

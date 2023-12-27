@@ -83,8 +83,7 @@ class MultiLevelAnalyse:
         """
         构建并返回低级别线构建的中枢
         """
-        low_zss = self.low_cd.create_dn_zs(zs_type, low_lines)
-        return low_zss
+        return self.low_cd.create_dn_zs(zs_type, low_lines)
 
     def _query_qs_and_bc(self, low_lines: List[LINE], low_zss: List[ZS], low_line_type='bi'):
         """
@@ -101,21 +100,21 @@ class MultiLevelAnalyse:
             one_line = low_lines[-3]
             two_line = low_lines[-1]
             if two_line.type == 'up' \
-                    and two_line.high > one_line.high and two_line.low > one_line.low \
-                    and compare_ld_beichi(one_line.get_ld(self.low_cd), two_line.get_ld(self.low_cd),
+                        and two_line.high > one_line.high and two_line.low > one_line.low \
+                        and compare_ld_beichi(one_line.get_ld(self.low_cd), two_line.get_ld(self.low_cd),
                                           two_line.type):
                 line_bc = True
             elif two_line.type == 'down' \
-                    and two_line.low < one_line.low and two_line.high < one_line.high \
-                    and compare_ld_beichi(one_line.get_ld(self.low_cd), two_line.get_ld(self.low_cd),
+                        and two_line.low < one_line.low and two_line.high < one_line.high \
+                        and compare_ld_beichi(one_line.get_ld(self.low_cd), two_line.get_ld(self.low_cd),
                                           two_line.type):
                 line_bc = True
 
-        if len(low_zss) == 0:
+        if not low_zss:
             return {'qs': qs, 'pz': pz, 'line_bc': line_bc, 'qs_bc': qs_bc, 'pz_bc': pz_bc, 'bc_line': None}
 
         # 判断是否盘整背驰
-        pz = True if low_zss[-1].type in ['up', 'down'] else False
+        pz = low_zss[-1].type in ['up', 'down']
         pz_bc, _ = self.low_cd.beichi_pz(low_zss[-1], low_zss[-1].lines[-1])
 
         # 判断是否趋势背驰
@@ -125,10 +124,7 @@ class MultiLevelAnalyse:
             if qs:
                 qs_bc, _ = self.low_cd.beichi_qs(base_lines, low_zss, low_zss[-1].lines[-1])
 
-        bc_line = None
-        if pz_bc or qs_bc:
-            bc_line = low_zss[-1].lines[-1]
-
+        bc_line = low_zss[-1].lines[-1] if pz_bc or qs_bc else None
         return {'qs': qs, 'pz': pz, 'line_bc': line_bc, 'qs_bc': qs_bc, 'pz_bc': pz_bc, 'bc_line': bc_line}
 
 
@@ -153,10 +149,10 @@ class LinesFormAnalyse:
             return None
         line_direction = lines[0].type
         # 起始结束必须是最高和最低 TODO 这样一些复杂的形态就不能分析了
-        lines_max_high = max([l.high for l in lines])
-        lines_min_low = min([l.low for l in lines])
+        lines_max_high = max(l.high for l in lines)
+        lines_min_low = min(l.low for l in lines)
         if (line_direction == 'up' and (lines[0].low != lines_min_low or lines[-1].high != lines_max_high)) or \
-                (line_direction == 'down' and (lines[0].high != lines_max_high or lines[-1].low != lines_min_low)):
+                    (line_direction == 'down' and (lines[0].high != lines_max_high or lines[-1].low != lines_min_low)):
             return None
 
         # 三笔的最简单，之间判断其是否背驰即可
@@ -171,12 +167,12 @@ class LinesFormAnalyse:
         # 多线首先判断是否是类趋势，一浪高过一浪 or 一浪低过一浪
         is_qs = True
         for i in range(3, line_num, 2):
-            if line_direction == 'up':
-                if lines[i - 2].high > lines[i].low:
+            if line_direction == 'down':
+                if lines[i - 2].low < lines[i].high:
                     is_qs = False
                     break
-            elif line_direction == 'down':
-                if lines[i - 2].low < lines[i].high:
+            elif line_direction == 'up':
+                if lines[i - 2].high > lines[i].low:
                     is_qs = False
                     break
         if is_qs:
@@ -219,15 +215,15 @@ class LinesFormAnalyse:
         # 多个中枢，首先判断是否形成趋势（中枢与中枢之间没有重叠）
         zs_qs = True
         for i in range(1, len(zss)):
-            if line_direction == 'up':
-                if zss[i - 1].gg >= zss[i].dd:
-                    zs_qs = False
-                    break
             if line_direction == 'down':
                 if zss[i - 1].dd < zss[i].gg:
                     zs_qs = False
                     break
 
+            elif line_direction == 'up':
+                if zss[i - 1].gg >= zss[i].dd:
+                    zs_qs = False
+                    break
         if zs_qs:
             # 如果是趋势，比较最后一个中枢前后两段
             line_1_ld = {'macd': query_macd_ld(self.cd, zss[-2].end, zss[-1].start)}
@@ -269,13 +265,16 @@ class LinesFormAnalyse:
                 if end_line.index > lh.index and end_line.index - lh.index <= 8:
                     _zss = self.cd.create_dn_zs('', lines[lh.index:end_line.index + 1])
                     if len(_zss) == 1 and \
-                            _zss[0].lines[0].index == lh.index and \
-                            _zss[0].lines[-1].index == end_line.index:
-                        line_max_high = max([max(_l.start.val, _l.end.val) for _l in _zss[0].lines])
-                        line_min_low = min([min(_l.start.val, _l.end.val) for _l in _zss[0].lines])
-                        if is_first is False and _zss[0].type in ['down', 'up']:
+                                _zss[0].lines[0].index == lh.index and \
+                                _zss[0].lines[-1].index == end_line.index:
+                        line_max_high = max(max(_l.start.val, _l.end.val) for _l in _zss[0].lines)
+                        line_min_low = min(min(_l.start.val, _l.end.val) for _l in _zss[0].lines)
+                        if not is_first and _zss[0].type in ['down', 'up']:
                             hd_zss.append(_zss[0])
-                        elif is_first is True and _zss[0].lines[0].start.val in [line_max_high, line_min_low]:
+                        elif is_first and _zss[0].lines[0].start.val in [
+                            line_max_high,
+                            line_min_low,
+                        ]:
                             hd_zss.append(_zss[0])
             return hd_zss
 
@@ -288,13 +287,16 @@ class LinesFormAnalyse:
                 if end_line.index > ll.index and end_line.index - ll.index <= 8:
                     _zss = self.cd.create_dn_zs('', lines[ll.index:end_line.index + 1])
                     if len(_zss) == 1 and \
-                            _zss[0].lines[0].index == ll.index and \
-                            _zss[0].lines[-1].index == end_line.index:
-                        line_max_high = max([max(_l.start.val, _l.end.val) for _l in _zss[0].lines])
-                        line_min_low = min([min(_l.start.val, _l.end.val) for _l in _zss[0].lines])
-                        if is_first is False and _zss[0].type in ['down', 'up']:
+                                _zss[0].lines[0].index == ll.index and \
+                                _zss[0].lines[-1].index == end_line.index:
+                        line_max_high = max(max(_l.start.val, _l.end.val) for _l in _zss[0].lines)
+                        line_min_low = min(min(_l.start.val, _l.end.val) for _l in _zss[0].lines)
+                        if not is_first and _zss[0].type in ['down', 'up']:
                             lu_zss.append(_zss[0])
-                        elif is_first is True and _zss[0].lines[0].start.val in [line_max_high, line_min_low]:
+                        elif is_first and _zss[0].lines[0].start.val in [
+                            line_max_high,
+                            line_min_low,
+                        ]:
                             lu_zss.append(_zss[0])
             return lu_zss
 
@@ -309,11 +311,11 @@ class LinesFormAnalyse:
                 if end_zs.type in ['up', 'down']:
                     # 出现三类买卖点，找不到中枢的情况，符合条件的情况下，往前找找
                     if end_zs.type == 'up' and zs_type == 'up' and end_line.index - 2 >= 0 and \
-                            (end_line.high > lines[end_line.index - 2].high and end_line.low > lines[
+                                (end_line.high > lines[end_line.index - 2].high and end_line.low > lines[
                                 end_line.index - 2].low):
                         _zss = find_low_up_zs(lines[end_line.index - 2], is_first=False)
                     elif end_zs.type == 'down' and zs_type == 'down' and end_line.index - 2 >= 0 and \
-                            (end_line.low < lines[end_line.index - 2].low and end_line.high < lines[
+                                (end_line.low < lines[end_line.index - 2].low and end_line.high < lines[
                                 end_line.index - 2].high):
                         _zss = find_high_down_zs(lines[end_line.index - 2], is_first=False)
                 if len(_zss) == 0:
@@ -325,7 +327,7 @@ class LinesFormAnalyse:
                             _zss = find_high_down_zs(end_line, is_first=False)
                             # 反向的出现三类买卖点，符合条件的情况下，也往前多找一段
                             if len(_zss) == 0 and end_zs.type == 'up' and end_line.index - 2 >= 0 and \
-                                    (end_line.low < lines[end_line.index - 2].low and end_line.high < lines[
+                                        (end_line.low < lines[end_line.index - 2].low and end_line.high < lines[
                                         end_line.index - 2].high):
                                 _zss = find_high_down_zs(lines[end_line.index - 2], is_first=False)
                         else:
@@ -333,7 +335,7 @@ class LinesFormAnalyse:
                             _zss = find_low_up_zs(end_line, is_first=False)
                             # 反向的出现三类买卖点，符合条件的情况下，也往前多找一段
                             if len(_zss) == 0 and end_zs.type == 'down' and end_line.index - 2 >= 0 and \
-                                    (end_line.low < lines[end_line.index - 2].low and end_line.high < lines[
+                                        (end_line.low < lines[end_line.index - 2].low and end_line.high < lines[
                                         end_line.index - 2].high):
                                 _zss = find_low_up_zs(lines[end_line.index - 2], is_first=False)
 
@@ -358,7 +360,7 @@ class LinesFormAnalyse:
             zss = [zs]
             while True:
                 key = f'{zss[-1].lines[0].index}_{zss[-1].lines[-1].index}'
-                if key in down_qs_zs_infos.keys():
+                if key in down_qs_zs_infos:
                     zss.append(down_qs_zs_infos[key][0])
                 else:
                     break
@@ -367,13 +369,13 @@ class LinesFormAnalyse:
             zss = [zs]
             while True:
                 key = f'{zss[-1].lines[0].index}_{zss[-1].lines[-1].index}'
-                if key in up_qs_zs_infos.keys():
+                if key in up_qs_zs_infos:
                     zss.append(up_qs_zs_infos[key][0])
                 else:
                     break
             qs_zs_infos.append(zss)
 
-        if len(qs_zs_infos) == 0:
+        if not qs_zs_infos:
             return None
 
         # 获取中枢最多的

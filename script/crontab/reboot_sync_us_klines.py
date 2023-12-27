@@ -537,7 +537,7 @@ def sync_code(_code: str):
             print(f"Run code {_code} frequency {_f} / {_d} klines len {len(klines)}")
             exchange.insert_klines(_code, _f, klines)
         except Exception as e:
-            print("执行 %s 同步K线异常" % _code)
+            print(f"执行 {_code} 同步K线异常")
             print(e)
             print(traceback.format_exc())
             time.sleep(10)

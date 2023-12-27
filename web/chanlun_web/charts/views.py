@@ -219,15 +219,12 @@ def cl_chart_config_save(request):
             'chart_idx_atr_period', 'chart_idx_cci_period', 'chart_idx_kdj_period', 'chart_qstd',
             'kline_qk',
             ]
-    config = {}
-    for _k in keys:
-        if _k in ['zs_bi_type', 'zs_xd_type']:
-            config[_k] = request.POST.getlist(_k)
-            # print(f'List value: {request.POST.getlist(_k)}')
-        else:
-            config[_k] = request.POST.get(_k)
-        # print(f'{_k} : {config[_k]}')
-
+    config = {
+        _k: request.POST.getlist(_k)
+        if _k in ['zs_bi_type', 'zs_xd_type']
+        else request.POST.get(_k)
+        for _k in keys
+    }
     if is_del == 'true':
         res = del_cl_chart_config(market, code)
     else:

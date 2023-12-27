@@ -29,11 +29,7 @@ class StrategySonLevel1MMD(Strategy):
             '1buy': '一买', '2buy': '二买', '3buy': '三买', 'l3buy': '类三买',
             '1sell': '一卖', '2sell': '二卖', '3sell': '三卖', 'l3sell': '类三卖'
         }
-        msg = ''
-        for k, v in infos.items():
-            if v > 0:
-                msg += f'{msg_maps[k]}:{v}'
-        return msg
+        return ''.join(f'{msg_maps[k]}:{v}' for k, v in infos.items() if v > 0)
 
     def open(self, code, market_data: MarketDatas, poss: Dict[str, POSITION]) -> List[Operation]:
         """
@@ -87,18 +83,24 @@ class StrategySonLevel1MMD(Strategy):
 
         # 设置止损价格
         price = high_data.get_klines()[-1].c
-        if self._max_loss_rate is not None:
-            if high_bi.type == 'up':
-                loss_price = min(high_bi.end.klines[-1].h, price * (1 + self._max_loss_rate / 100))
-            else:
-                loss_price = max(high_bi.end.klines[-1].l, price * (1 - self._max_loss_rate / 100))
-        else:
+        if self._max_loss_rate is None:
             loss_price = high_bi.end.klines[-1].l if high_bi.type == 'down' else high_bi.end.klines[-1].h
 
+        elif high_bi.type == 'up':
+            loss_price = min(high_bi.end.klines[-1].h, price * (1 + self._max_loss_rate / 100))
+        else:
+            loss_price = max(high_bi.end.klines[-1].l, price * (1 - self._max_loss_rate / 100))
         # 买卖点开仓
-        for mmd in high_bi.line_mmds():
-            opts.append(Operation('buy', mmd, loss_price, {},
-                                  f'高级别买卖点 {mmd}, 低级别 {low_frequency} 出现 {self.info_msg(low_infos)}'))
+        opts.extend(
+            Operation(
+                'buy',
+                mmd,
+                loss_price,
+                {},
+                f'高级别买卖点 {mmd}, 低级别 {low_frequency} 出现 {self.info_msg(low_infos)}',
+            )
+            for mmd in high_bi.line_mmds()
+        )
         # 背驰开仓
         for bc in high_bi.line_bcs():
             if bc not in ['pz', 'qs']:

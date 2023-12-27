@@ -40,8 +40,8 @@ class KlinesGenerator:
         tz = from_klines.iloc[-1]['date'].tz
 
         convert_klines = from_klines \
-            if self.to_klines is None or len(self.to_klines) < 10 else \
-            from_klines[from_klines['date'] >= self.to_klines['date'].iloc[-2]]
+                if self.to_klines is None or len(self.to_klines) < 10 else \
+                from_klines[from_klines['date'] >= self.to_klines['date'].iloc[-2]]
 
         new_klines = {}
         for _, _k in convert_klines.iterrows():
@@ -53,7 +53,12 @@ class KlinesGenerator:
                 new_dt_timestamp = dt_timestamp - (dt_timestamp % (self.minute * 60)) + (self.minute * 60)
 
             new_dt = fun.timeint_to_datetime(new_dt_timestamp, tz=tz)
-            if new_dt not in new_klines.keys():
+            if new_dt in new_klines:
+                new_klines[new_dt]['high'] = max(new_klines[new_dt]['high'], _k['high'])
+                new_klines[new_dt]['low'] = min(new_klines[new_dt]['low'], _k['low'])
+                new_klines[new_dt]['close'] = _k['close']
+                new_klines[new_dt]['volume'] += float(_k['volume'])
+            else:
                 new_klines[new_dt] = {
                     'code': _k['code'],
                     'date': new_dt,
@@ -63,11 +68,6 @@ class KlinesGenerator:
                     'low': _k['low'],
                     'volume': float(_k['volume']),
                 }
-            else:
-                new_klines[new_dt]['high'] = max(new_klines[new_dt]['high'], _k['high'])
-                new_klines[new_dt]['low'] = min(new_klines[new_dt]['low'], _k['low'])
-                new_klines[new_dt]['close'] = _k['close']
-                new_klines[new_dt]['volume'] += float(_k['volume'])
         kline_pd = pd.DataFrame(new_klines.values())
         if self.to_klines is None:
             self.to_klines = kline_pd

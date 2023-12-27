@@ -127,9 +127,11 @@ class StrategyAXDTradeModel(Strategy):
 
         # 日线笔要下跌情况，并且笔要完成
         bi_day = cd_day.get_bis()[-1]
-        if bi_day.type == 'down' and bi_day.is_done() and price > bi_day.end.klines[-1].h:
-            pass
-        else:
+        if (
+            bi_day.type != 'down'
+            or not bi_day.is_done()
+            or price <= bi_day.end.klines[-1].h
+        ):
             return opts
 
         # 笔距离线段不能太远，太远可能随时结束
@@ -145,9 +147,7 @@ class StrategyAXDTradeModel(Strategy):
             _xd for _xd in cd_5m.get_xds()
             if _xd.start.k.date >= bi_day.start.k.date and _xd.end.k.date <= bi_day.end.k.klines[-1].date
         ]
-        if len(xds_30m) >= 1 or len(xds_5m) >= 5:
-            pass
-        else:
+        if not xds_30m and len(xds_5m) < 5:
             return opts
 
         xds_30m = [_xd for _xd in cd_30m.get_xds() if _xd.start.k.date >= xd_day.start.k.date]
@@ -160,7 +160,7 @@ class StrategyAXDTradeModel(Strategy):
         low_level_5m_msg = ''
 
         # 确定只做第一个三买
-        if is_ok_5m is False:
+        if not is_ok_5m:
             bis_5m_3buy = [_bi for _bi in cd_5m.get_bis() if
                            _bi.start.k.date >= bi_day.end.k.date and _bi.mmd_exists(['3buy'], '|')]
             if len(bis_5m_3buy) == 1:
@@ -168,21 +168,21 @@ class StrategyAXDTradeModel(Strategy):
                 low_level_5m_msg = '5m 三买点'
 
         # 确定做第一个一买，后续笔不创新低
-        if is_ok_5m is False:
+        if not is_ok_5m:
             bis_5m_1buy = [_bi for _bi in cd_5m.get_bis() if
                            _bi.start.k.date >= bi_day.end.k.date and _bi.mmd_exists(['1buy'], '|')]
             if len(bis_5m_1buy) == 1:
                 is_ok_5m = True
                 low_level_5m_msg = '5m 一买点'
         # 确定做第一个二买
-        if is_ok_5m is False:
+        if not is_ok_5m:
             bis_5m_2buy = [_bi for _bi in cd_5m.get_bis() if
                            _bi.start.k.date >= bi_day.end.k.date and _bi.mmd_exists(['2buy'], '|')]
             if len(bis_5m_2buy) == 1:
                 is_ok_5m = True
                 low_level_5m_msg = '5m 二买点'
 
-        if is_ok_5m is False:
+        if not is_ok_5m:
             return opts
         # 计算止损价格
         bi_day = cd_day.get_bis()[-1]
@@ -309,7 +309,7 @@ class StrategyAXDTradeModel(Strategy):
                     _xd for _xd in cd_5m.get_xds()
                     if _xd.start.k.date >= bi_day.start.k.date and _xd.end.k.date <= bi_day.end.k.klines[-1].date
                 ]
-                if len(xds_30m) >= 1 or len(xds_5m) >= 5:
+                if xds_30m or len(xds_5m) >= 5:
                     return Operation(
                         opt='sell', mmd=mmd,
                         msg=f'日线向上笔结束(30m:{len(xds_30m)}/5m:{len(xds_5m)})，并且价格小于5日均线，平仓退出'
@@ -320,7 +320,7 @@ class StrategyAXDTradeModel(Strategy):
         if len(xds_30m) >= 3:
             bi_30m = self.last_done_bi(cd_30m.get_bis())
             if bi_30m.start.k.date > info['open_buy_date'] and bi_30m.mmd_exists(['1sell', '2sell', '3sell']) \
-                    and self.bi_td(bi_30m, cd_30m):
+                        and self.bi_td(bi_30m, cd_30m):
                 return Operation(opt='sell', mmd=mmd, msg=f'30m级别出现卖点 {bi_30m.line_mmds()}')
 
         # 5m 出现三类卖点，退出
@@ -333,6 +333,6 @@ class StrategyAXDTradeModel(Strategy):
             ]
             for _bi in bis_5m:
                 if _bi.mmd_exists(['3sell'], '|') and self.bi_td(_bi, cd_5m):
-                    return Operation(opt='sell', mmd=mmd, msg=f'5m级别，出现笔的三类卖点')
+                    return Operation(opt='sell', mmd=mmd, msg='5m级别，出现笔的三类卖点')
 
         return False

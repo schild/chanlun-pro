@@ -516,12 +516,12 @@ class BackTest:
             cl_config=show_cl_config,
         )
         bk.klines(code, frequency)
-        klines = bk.all_klines["%s-%s" % (code, frequency)]
-        title = "%s - %s" % (code, frequency)
+        klines = bk.all_klines[f"{code}-{frequency}"]
+        title = f"{code} - {frequency}"
         if to_minutes is not None:
             kg = KlinesGenerator(to_minutes, show_cl_config, to_dt_align_type)
             cd: ICL = kg.update_klines(klines)
-            title = "%s - (%s to %s)" % (code, frequency, to_minutes)
+            title = f"{code} - ({frequency} to {to_minutes})"
         elif merge_kline_freq is not None:
             m_freq_info = merge_kline_freq.split(":")
             if m_freq_info[0] == "a":
@@ -531,7 +531,7 @@ class BackTest:
             else:
                 klines = convert_currency_kline_frequency(klines, m_freq_info[1])
             cd: ICL = cl.CL(code, m_freq_info[1], show_cl_config).process_klines(klines)
-            title = "%s - %s" % (code, "Merge " + m_freq_info[1])
+            title = f"{code} - Merge {m_freq_info[1]}"
         else:
             cd: ICL = cl.CL(code, frequency, show_cl_config).process_klines(klines)
         orders = self.trader.orders[code] if code in self.trader.orders else []
@@ -541,10 +541,13 @@ class BackTest:
             and show_cl_config["not_show_lock_order"]
         ):
             orders = [o for o in orders if "锁仓" not in o["info"]]
-        render = kcharts.render_charts(
-            title, cd, to_frequency=to_frequency, orders=orders, config=show_cl_config
+        return kcharts.render_charts(
+            title,
+            cd,
+            to_frequency=to_frequency,
+            orders=orders,
+            config=show_cl_config,
         )
-        return render
 
     def result(self, is_print=True):
         """
@@ -566,9 +569,6 @@ class BackTest:
 
             # 每年交易日设置
             annual_days = 240 if self.market in ["a", "us", "hk" "futures"] else 365
-            # 无风险收益率
-            risk_free = 0.03
-
             # 按照日期聚合资产变化
             new_day_balances = {}
             for dt, b in self.trader.balance_history.items():
@@ -610,6 +610,9 @@ class BackTest:
             return_std = df["return"].std() * 100
 
             if return_std:
+                # 无风险收益率
+                risk_free = 0.03
+
                 daily_risk_free = risk_free / np.sqrt(annual_days)
                 sharpe_ratio = (
                     (daily_return - daily_risk_free) / return_std * np.sqrt(annual_days)
@@ -819,7 +822,6 @@ class BackTest:
         """
         输出盈利图表
         """
-        base_prices = {"datetime": [], "val": []}
         balance_history = {"datetime": [], "val": []}
         hold_profit_history = {"datetime": [], "val": []}
         hold_num_history = {"datetime": [], "val": []}
@@ -833,8 +835,7 @@ class BackTest:
             args={"limit": None},
         )
         dts = list(base_klines["date"].to_list())
-        base_prices["val"] = list(base_klines["close"].to_list())
-
+        base_prices = {"datetime": [], "val": list(base_klines["close"].to_list())}
         # 获取所有的持仓历史，并按照平仓时间排序
         positions: List[POSITION] = []
         for _code in self.trader.positions_history:
@@ -845,23 +846,23 @@ class BackTest:
         dts_total_nps = {}
         for _p in positions:
             net_profit = (_p.profit_rate / 100) * _p.balance
-            if _p.close_datetime not in dts_total_nps.keys():
-                dts_total_nps[_p.close_datetime] = net_profit
-            else:
+            if _p.close_datetime in dts_total_nps:
                 dts_total_nps[_p.close_datetime] += net_profit
 
+            else:
+                dts_total_nps[_p.close_datetime] = net_profit
         # 按照时间统计当前时间持仓累计盈亏
         _hold_profit_sums = {}
         _hold_num_sums = {}
         for _code, _hp in self.trader.hold_profit_history.items():
             for _dt, _p in _hp.items():
-                if _dt not in _hold_profit_sums.keys():
-                    _hold_profit_sums[_dt] = _p
-                    _hold_num_sums[_dt] = 1 if _p != 0 else 0
-                else:
+                if _dt in _hold_profit_sums:
                     _hold_profit_sums[_dt] += _p
                     _hold_num_sums[_dt] += 1 if _p != 0 else 0
 
+                else:
+                    _hold_profit_sums[_dt] = _p
+                    _hold_num_sums[_dt] = 1 if _p != 0 else 0
         # 按照时间累加总的收益
         total_np = 0
         for _dt in dts:
@@ -881,14 +882,14 @@ class BackTest:
 
             # 当前时间持仓累计
             hold_profit_history["datetime"].append(_dt)
-            if _dt in _hold_profit_sums.keys():
+            if _dt in _hold_profit_sums:
                 hold_profit_history["val"].append(_hold_profit_sums[_dt])
             else:
                 hold_profit_history["val"].append(0)
 
             # 当前时间持仓数量
             hold_num_history["datetime"].append(_dt)
-            if _dt in _hold_num_sums.keys():
+            if _dt in _hold_num_sums:
                 hold_num_history["val"].append(_hold_num_sums[_dt])
             else:
                 hold_num_history["val"].append(0)
@@ -928,10 +929,7 @@ class BackTest:
                 }
                 if add_columns is not None:
                     for _col in add_columns:
-                        if _col in p.info.keys():
-                            p_obj[_col] = p.info[_col]
-                        else:
-                            p_obj[_col] = "--"
+                        p_obj[_col] = p.info[_col] if _col in p.info.keys() else "--"
                 pos_objs.append(p_obj)
 
         return pd.DataFrame(pos_objs)

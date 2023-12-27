@@ -62,12 +62,11 @@ class StrategyA3mmd(Strategy):
         zs_macd_infos = cal_zs_macd_infos(high_zs, high_data)
         # TODO 是否粘在一起这个不好判断了，就不考虑了
         if (
-                zs_macd_infos.dif_down_cross_num > 0 or zs_macd_infos.dif_up_cross_num > 0
-        ) or (
-                zs_macd_infos.die_cross_num >= 2 or zs_macd_infos.gold_cross_num >= 2
+            zs_macd_infos.dif_down_cross_num <= 0
+            and zs_macd_infos.dif_up_cross_num <= 0
+            and zs_macd_infos.die_cross_num < 2
+            and zs_macd_infos.gold_cross_num < 2
         ):
-            pass
-        else:
             return opts
 
         high_bi = self.last_done_bi(high_data.get_bis())
@@ -77,23 +76,22 @@ class StrategyA3mmd(Strategy):
         high_up_bi = high_data.get_bis()[high_bi.index - 1]
         high_xd = high_data.get_xds()[-1]
         if high_up_bi.bc_exists(['bi', 'pz', 'qs']) \
-                or (high_xd.type != high_bi.type and high_xd.bc_exists(['xd', 'pz', 'qs'])):
+                    or (high_xd.type != high_bi.type and high_xd.bc_exists(['xd', 'pz', 'qs'])):
             return opts
 
         # 止损点放在 分型第三根K线的 高低点
-        if self._max_loss_rate is not None:
-            if high_bi.type == 'down':
-                loss_price = price - (price * (abs(self._max_loss_rate) / 100))
-                loss_price = max(loss_price, high_bi.end.klines[-1].l)
-            else:
-                loss_price = price + (price * (abs(self._max_loss_rate) / 100))
-                loss_price = min(loss_price, high_bi.end.klines[-1].h)
+        if self._max_loss_rate is None:
+            loss_price = (
+                high_bi.end.klines[-1].l
+                if high_bi.type == 'down'
+                else high_bi.end.klines[-1].h
+            )
+        elif high_bi.type == 'down':
+            loss_price = price - (price * (abs(self._max_loss_rate) / 100))
+            loss_price = max(loss_price, high_bi.end.klines[-1].l)
         else:
-            if high_bi.type == 'down':
-                loss_price = high_bi.end.klines[-1].l
-            else:
-                loss_price = high_bi.end.klines[-1].h
-
+            loss_price = price + (price * (abs(self._max_loss_rate) / 100))
+            loss_price = min(loss_price, high_bi.end.klines[-1].h)
         if high_bi.mmd_exists(['3buy', '3sell']):
             # 买入条件：针对本级别中枢的本级别3买卖点
             # 自己增加一个低级别背驰并且高级别停顿的买入条件
@@ -104,14 +102,18 @@ class StrategyA3mmd(Strategy):
                 yzfx = self.bi_yanzhen_fx(high_bi, high_data)
                 low_bc = (low_qs.pz_bc or low_qs.qs_bc) and self.bi_td(high_bi, high_data)
                 if btd or yzfx or low_bc:
-                    opts.append(Operation(
-                        opt='buy', mmd=mmd, loss_price=loss_price, info={
-                            'high_bi': high_bi,
-                            'high_zs': high_zs,
-                        },
-                        msg='买入条件：本级别买点（%s 笔停顿 %s 验证分型 %s 低级别背驰 %s）,止损价格 %s' % (
-                            mmd, btd, yzfx, low_bc, loss_price)
-                    ))
+                    opts.append(
+                        Operation(
+                            opt='buy',
+                            mmd=mmd,
+                            loss_price=loss_price,
+                            info={
+                                'high_bi': high_bi,
+                                'high_zs': high_zs,
+                            },
+                            msg=f'买入条件：本级别买点（{mmd} 笔停顿 {btd} 验证分型 {yzfx} 低级别背驰 {low_bc}）,止损价格 {loss_price}',
+                        )
+                    )
         elif high_zs.done is False:
             # 买入条件：针对本级别中枢的次级别3买卖点
             # 买入条件：针对本级别中枢的b-A
@@ -130,28 +132,30 @@ class StrategyA3mmd(Strategy):
                 _fx for _fx in high_data.get_fxs()
                 if (_fx.done and _fx.index > high_bi.start.index and _fx.type == high_bi.start.type and _fx.ld() >= 2)
             ]
-            if len(high_max_fxs) == 0:
+            if not high_max_fxs:
                 return opts
 
             mmd = None
             # 两个买入条件的有些重复了，这里的止损就没有参考最大止损设置里
             # 这里定义为 类3买卖点，与本级别的区分开 TODO 这里还是需要优化
             if high_bi.type == 'up' and high_max_fxs[-1].val > high_zs.zg \
-                    and price > high_max_fxs[-1].high(high_data.get_config()['fx_qj'], high_data.get_config()['fx_qy']):
+                        and price > high_max_fxs[-1].high(high_data.get_config()['fx_qj'], high_data.get_config()['fx_qy']):
                 mmd = 'l3buy'
                 loss_price = high_max_fxs[-1].klines[-1].l
             elif high_bi.type == 'down' and high_max_fxs[-1].val < high_zs.zd \
-                    and price < high_max_fxs[-1].low(high_data.get_config()['fx_qj'], high_data.get_config()['fx_qy']):
+                        and price < high_max_fxs[-1].low(high_data.get_config()['fx_qj'], high_data.get_config()['fx_qy']):
                 mmd = 'l3sell'
                 loss_price = high_max_fxs[-1].klines[-1].h
             if mmd:
-                opts.append(Operation(
-                    opt='buy', mmd=mmd, loss_price=loss_price, info={
-                        'high_bi': high_bi,
-                        'high_zs': high_zs
-                    },
-                    msg='买入条件：次级别强势反向分型买点（%s）,止损价格 %s' % (mmd, loss_price)
-                ))
+                opts.append(
+                    Operation(
+                        opt='buy',
+                        mmd=mmd,
+                        loss_price=loss_price,
+                        info={'high_bi': high_bi, 'high_zs': high_zs},
+                        msg=f'买入条件：次级别强势反向分型买点（{mmd}）,止损价格 {loss_price}',
+                    )
+                )
 
         return opts
 
@@ -164,8 +168,7 @@ class StrategyA3mmd(Strategy):
 
         high_data = market_data.get_cl_data(code, market_data.frequencys[0])
         price = high_data.get_klines()[-1].c
-        loss_opt = self.check_loss(mmd, pos, price)
-        if loss_opt:
+        if loss_opt := self.check_loss(mmd, pos, price):
             return loss_opt
 
         low_data = market_data.get_cl_data(code, market_data.frequencys[1])
@@ -179,10 +182,10 @@ class StrategyA3mmd(Strategy):
         # 卖出条件：05均线卖出 05均线对应的关键点——走势加速
         # 均线角度变化计算比较复杂，使用笔的角度来判断，因为没有考虑到加速那一段，所以角度设定为 50
         if 'buy' in mmd and high_bi.type == 'up' and high_bi.is_done() \
-                and abs(high_bi.jiaodu()) > 50 and price < idx_ma:
+                    and abs(high_bi.jiaodu()) > 50 and price < idx_ma:
             return Operation(opt='sell', mmd=mmd, msg='笔角度大于50并且当前价格低于均线')
         if 'sell' in mmd and high_bi.type == 'down' and high_bi.is_done() \
-                and abs(high_bi.jiaodu()) > 50 and price > idx_ma:
+                    and abs(high_bi.jiaodu()) > 50 and price > idx_ma:
             return Operation(opt='sell', mmd=mmd, msg='笔角度大于50并且当前价格高于均线')
 
         # 卖出条件：标准走势卖出 标准走势对应的关键点——次级别趋势背驰和反转分型
@@ -213,15 +216,15 @@ class StrategyA3mmd(Strategy):
         # 高级别笔背驰
         if 'buy' in mmd and high_bi.type == 'up' and self.bi_td(high_bi, high_data) and high_bi.bc_exists(
                 ['bi', 'pz', 'qs']):
-            return Operation('sell', mmd, msg='高级别笔背驰（%s）' % high_bi.line_bcs())
+            return Operation('sell', mmd, msg=f'高级别笔背驰（{high_bi.line_bcs()}）')
         if 'sell' in mmd and high_bi.type == 'down' and self.bi_td(high_bi, high_data) and high_bi.bc_exists(
                 ['bi', 'pz', 'qs']):
-            return Operation('sell', mmd, msg='高级别笔背驰（%s）' % high_bi.line_bcs())
+            return Operation('sell', mmd, msg=f'高级别笔背驰（{high_bi.line_bcs()}）')
 
         # 低级别笔出现一二类买卖点
         if 'buy' in mmd and low_bi.mmd_exists(['1sell', '2sell']) and high_bi.type == 'up' and high_bi.is_done():
-            return Operation('sell', mmd, msg='低级别笔卖点（%s）' % low_bi.line_mmds())
+            return Operation('sell', mmd, msg=f'低级别笔卖点（{low_bi.line_mmds()}）')
         if 'sell' in mmd and low_bi.mmd_exists(['1buy', '2buy']) and high_bi.type == 'down' and high_bi.is_done():
-            return Operation('sell', mmd, msg='低级别笔买点（%s）' % low_bi.line_mmds())
+            return Operation('sell', mmd, msg=f'低级别笔买点（{low_bi.line_mmds()}）')
 
         return None

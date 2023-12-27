@@ -85,11 +85,9 @@ def is_sync_code(_code):
 
 # 从自选中获取同步股票
 stocks = line_ex.all_stocks()
-run_codes = []
-for s in stocks:
-    if "KQ.m" in s["code"] or is_sync_code(s["code"]):
-        run_codes.append(s["code"])
-
+run_codes = [
+    s["code"] for s in stocks if "KQ.m" in s["code"] or is_sync_code(s["code"])
+]
 print(run_codes)
 
 
@@ -114,10 +112,10 @@ for code in run_codes:
                 start_date=dt["start"] if last_dt is None else last_dt,
                 end_date=dt["end"],
             )
-            print("Run code %s frequency %s klines len %s" % (code, f, len(klines)))
+            print(f"Run code {code} frequency {f} klines len {len(klines)}")
             db_ex.insert_klines(code, f, klines)
         except Exception as e:
-            print("执行 %s 同步K线异常" % code)
+            print(f"执行 {code} 同步K线异常")
             print(traceback.format_exc())
             time.sleep(10)
 

@@ -162,11 +162,7 @@ class ExchangeTDX(Exchange):
             args["fq"] = "qfq"
         if "use_cache" not in args.keys():
             args["use_cache"] = True
-        if "pages" not in args.keys():
-            args["pages"] = 8
-        else:
-            args["pages"] = int(args["pages"])
-
+        args["pages"] = 8 if "pages" not in args.keys() else int(args["pages"])
         frequency_map = {
             "y": 11,
             "m": 6,
@@ -255,19 +251,19 @@ class ExchangeTDX(Exchange):
 
             # 转换时区
             ks["date"] = ks["date"].dt.tz_localize(self.tz)
-            if frequency in ["d", "w", "m", "q", "y"]:
+            if frequency in {"d", "w", "m", "q", "y"}:
                 # 将时间转换成 15:00:00
                 ks["date"] = ks["date"].apply(lambda _d: _d.replace(hour=15, minute=0))
 
-            if frequency == "w":  # 周设置为每周一
-                ks["date"] = ks["date"].apply(self.get_monday)
-            if frequency == "m":  # 月设置为每月的一号
+            if frequency == "m":
                 ks["date"] = ks["date"].apply(lambda _d: _d.replace(day=1))
-            if frequency == "y":  # 年设置为一月一号
+            elif frequency == "w":
+                ks["date"] = ks["date"].apply(self.get_monday)
+            elif frequency == "y":
                 ks["date"] = ks["date"].apply(lambda _d: _d.replace(month=1, day=1))
             ks = ks.drop_duplicates(["date"], keep="last").sort_values("date")
 
-            if frequency in ["120m", "10m", "2m"]:
+            if frequency in {"120m", "10m", "2m"}:
                 ks = convert_stock_kline_frequency(ks, frequency)
 
             if args["fq"] in ["qfq", "hfq"]:
@@ -308,10 +304,10 @@ class ExchangeTDX(Exchange):
         获取股票名称
         """
         all_stock = self.all_stocks()
-        stock = [_s for _s in all_stock if _s["code"] == code]
-        if not stock:
+        if stock := [_s for _s in all_stock if _s["code"] == code]:
+            return {"code": stock[0]["code"], "name": stock[0]["name"]}
+        else:
             return None
-        return {"code": stock[0]["code"], "name": stock[0]["name"]}
 
     def ticks(self, codes: List[str]) -> Dict[str, Tick]:
         """
@@ -320,7 +316,7 @@ class ExchangeTDX(Exchange):
         获取日线的k线，并返回最后一根k线的数据
         """
         ticks = {}
-        if len(codes) == 0:
+        if not codes:
             return ticks
         query_stocks = []
         for _c in codes:
@@ -352,7 +348,7 @@ class ExchangeTDX(Exchange):
                     _code = "SH.000001"
                 else:
                     _code = [_c for _c in codes if _c[-6:] == _q["code"]]
-                    if len(_code) == 0:
+                    if not _code:
                         continue
                     _code = _code[0]
                 ticks[_code] = Tick(
@@ -379,17 +375,13 @@ class ExchangeTDX(Exchange):
         周一至周五，09:30-11:30 13:00-15:00
         """
         now_dt = datetime.datetime.now()
-        if now_dt.weekday() in [5, 6]:  # 周六日不交易
+        if now_dt.weekday() in {5, 6}:  # 周六日不交易
             return False
         hour = now_dt.hour
         minute = now_dt.minute
         if hour == 9 and minute >= 30:
             return True
-        if hour in [10, 13, 14]:
-            return True
-        if hour == 11 and minute < 30:
-            return True
-        return False
+        return True if hour in {10, 13, 14} else hour == 11 and minute < 30
 
     @staticmethod
     def for_sz(code):
@@ -512,10 +504,7 @@ class ExchangeTDX(Exchange):
         stock_codes += self.stock_bkgn.get_codes_by_hy(code)
 
         def code_to_tdx(_code: str):
-            if _code[0] == "6":
-                return "SH." + _code
-            else:
-                return "SZ." + _code
+            return f"SH.{_code}" if _code[0] == "6" else f"SZ.{_code}"
 
         return [
             self.stock_info(code_to_tdx(c))
@@ -541,12 +530,11 @@ class ExchangeTDX(Exchange):
             xdxr_path.mkdir()
         xdxr_file = xdxr_path / f"new_xdxr_{market}_{project_code}.pkl"
         now_day = fun.datetime_to_str(datetime.datetime.now(), "%Y-%m-%d")
-        need_update = False  # 判断是否需要更新
-        if (
+        need_update = (
             xdxr_file.is_file() is False
-            or fun.timeint_to_str(int(xdxr_file.stat().st_mtime), "%Y-%m-%d") != now_day
-        ):
-            need_update = True
+            or fun.timeint_to_str(int(xdxr_file.stat().st_mtime), "%Y-%m-%d")
+            != now_day
+        )
         if need_update:
             client = TdxHq_API(raise_exception=True, auto_retry=True)
             with client.connect(self.connect_info["ip"], self.connect_info["port"]):
@@ -632,15 +620,6 @@ class ExchangeTDX(Exchange):
         ) / (10 + data["peigu"] + data["songzhuangu"])
 
         # 前复权
-        if fq_type == "qfq":
-            data["adj"] = (
-                (data["preclose"].shift(-1) / data["close"]).fillna(1)[::-1].cumprod()
-            )
-            # ohlc 数据进行复权计算
-            for col in ["open", "high", "low", "close"]:
-                data[col] = round(data[col] * data["adj"], 2)
-
-        # 后复权
         if fq_type == "hfq":
             data["adj"] = (
                 (data["close"] / data["preclose"].shift(-1))
@@ -651,6 +630,14 @@ class ExchangeTDX(Exchange):
             # ohlc 数据进行复权计算
             for col in ["open", "high", "low", "close"]:
                 data[col] = round(data[col] / data["adj"], 2)
+
+        elif fq_type == "qfq":
+            data["adj"] = (
+                (data["preclose"].shift(-1) / data["close"]).fillna(1)[::-1].cumprod()
+            )
+            # ohlc 数据进行复权计算
+            for col in ["open", "high", "low", "close"]:
+                data[col] = round(data[col] * data["adj"], 2)
 
         # data['volume'] = data['volume'] / data['adj'] if 'volume' in data.columns else data['vol'] / data['adj']
 

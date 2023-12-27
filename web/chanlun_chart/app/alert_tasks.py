@@ -84,8 +84,7 @@ class AlertTasks(object):
         """
         获取警报列表
         """
-        alert_list = db.task_query(market=market)
-        return alert_list
+        return db.task_query(market=market)
 
     @staticmethod
     def alert_get(_id) -> TableByAlertTask:

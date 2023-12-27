@@ -219,12 +219,8 @@ class StocksBKGN(object):
             .replace("SHSE.", "")
         )
         hys, gns = self.file_bkgns()
-        code_hys = []
-        code_gns = []
-        if code in hys.keys():
-            code_hys = hys[code]
-        if code in gns.keys():
-            code_gns = gns[code]
+        code_hys = hys[code] if code in hys.keys() else []
+        code_gns = gns[code] if code in gns.keys() else []
         return {"HY": code_hys, "GN": code_gns}
 
     def get_codes_by_hy(self, hy_name):
@@ -232,24 +228,14 @@ class StocksBKGN(object):
         根据行业名称，获取其中的股票代码列表
         """
         hys, gns = self.file_bkgns()
-        codes = []
-        for _code, _hys in hys.items():
-            if hy_name in _hys:
-                codes.append(_code)
-
-        return codes
+        return [_code for _code, _hys in hys.items() if hy_name in _hys]
 
     def get_codes_by_gn(self, gn_name):
         """
         根据概念名称，获取其中的股票代码列表
         """
         hys, gns = self.file_bkgns()
-        codes = []
-        for _code, _gns in gns.items():
-            if gn_name in _gns:
-                codes.append(_code)
-
-        return codes
+        return [_code for _code, _gns in gns.items() if gn_name in _gns]
 
 
 if __name__ == "__main__":

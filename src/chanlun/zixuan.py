@@ -87,7 +87,7 @@ class ZiXuan(object):
         if zx_group not in self.zx_names:
             return False
         # 如果名称为空，则自动进行获取
-        if name is None or name == "" or name == "undefined":
+        if name is None or not name or name == "undefined":
             try:
                 ex = get_exchange(Market(self.market_type))
                 stock_info = ex.stock_info(code)
@@ -146,7 +146,7 @@ class ZiXuan(object):
         查询代码所在的自选分组
         """
         exists_group = db.zx_query_group_by_code(self.market_type, code)
-        res_zx_group = [
+        return [
             {
                 "zx_name": _g["name"],
                 "code": code,
@@ -154,7 +154,6 @@ class ZiXuan(object):
             }
             for _g in self.zixuan_list
         ]
-        return res_zx_group
 
 
 if __name__ == "__main__":

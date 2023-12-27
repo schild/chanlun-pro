@@ -1184,19 +1184,17 @@ for code in codes:
         xg_res = xuangu.xg_single_find_3buy_by_zhuanzhe(cds)
         if xg_res is not None:
             stocks = ex.stock_info(code)
-            print(
-                "【%s - %s 】 出现机会：%s" % (stocks["code"], stocks["name"], xg_res["msg"])
-            )
+            print(f'【{stocks["code"]} - {stocks["name"]} 】 出现机会：{xg_res["msg"]}')
             choice_stocks.append(stocks)
             zx.add_stock(zx_group, stocks["code"], stocks["name"])
 
         """
         *** 这里也可以在写其他的选股条件，执行多个选股策略；复制以上的并改变选股条件 ***
         """
-        # ...
+            # ...
     except Exception as e:
-        print("Code : %s Run Exception : %s" % (code, e))
+        print(f"Code : {code} Run Exception : {e}")
 
-print("运行时间：%s" % (time.time() - _stime))
+print(f"运行时间：{time.time() - _stime}")
 print("Done")
 print(json.dumps(choice_stocks, ensure_ascii=False))

@@ -58,33 +58,43 @@ class StrategyFuturesXDZS(Strategy):
             # 后续向上笔不超过 顶特征序列分型的第三元素高点，做空
             if high_bi.type == 'up' and high_bi.high < high_xd.ding_fx.xls[-1].max and self.bi_td(high_bi, high_data):
                 return [
-                    Operation('buy', '1sell', get_loss_price(high_bi), info,
-                              f'中枢震荡，向上线段完成，卖出做空')
+                    Operation(
+                        'buy',
+                        '1sell',
+                        get_loss_price(high_bi),
+                        info,
+                        '中枢震荡，向上线段完成，卖出做空',
+                    )
                 ]
 
-            # 有时线段的结束位置并不是最高或最低点，这里过滤一下
-            # loss_price = get_loss_price(high_xd)
-            # if loss_price > price:
-            #     return [
-            #         Operation('buy', '1sell', get_loss_price(high_xd), info,
-            #                   f'中枢震荡，向上线段完成，卖出做空')
-            #     ]
+                # 有时线段的结束位置并不是最高或最低点，这里过滤一下
+                # loss_price = get_loss_price(high_xd)
+                # if loss_price > price:
+                #     return [
+                #         Operation('buy', '1sell', get_loss_price(high_xd), info,
+                #                   f'中枢震荡，向上线段完成，卖出做空')
+                #     ]
 
         if price < high_xd_zs.zd and high_xd.type == 'down' and high_xd.done:
             # 后续向下笔不超过 底特征序列分型的第三元素低点，做多
             if high_bi.type == 'down' and high_bi.low > high_xd.di_fx.xls[-1].min and self.bi_td(high_bi, high_data):
                 return [
-                    Operation('buy', '1buy', get_loss_price(high_bi), info,
-                              f'中枢震荡，向下线段完成，买入做多')
+                    Operation(
+                        'buy',
+                        '1buy',
+                        get_loss_price(high_bi),
+                        info,
+                        '中枢震荡，向下线段完成，买入做多',
+                    )
                 ]
 
-            # 有时线段的结束位置并不是最高或最低点，这里过滤一下
-            # loss_price = get_loss_price(high_xd)
-            # if loss_price < price:
-            #     return [
-            #         Operation('buy', '1buy', get_loss_price(high_xd), info,
-            #                   f'中枢震荡，向下线段完成，买入做多')
-            #     ]
+                # 有时线段的结束位置并不是最高或最低点，这里过滤一下
+                # loss_price = get_loss_price(high_xd)
+                # if loss_price < price:
+                #     return [
+                #         Operation('buy', '1buy', get_loss_price(high_xd), info,
+                #                   f'中枢震荡，向下线段完成，买入做多')
+                #     ]
         return opts
 
     def close(self, code, mmd: str, pos: POSITION, market_data: MarketDatas) -> [Operation, None, List[Operation]]:
@@ -108,11 +118,11 @@ class StrategyFuturesXDZS(Strategy):
         # 判断是否进行锁仓，如果是当日进行开仓的，在收盘前进行锁仓，后续就不用了
         now_date = kline_date.strftime('%Y-%m-%d')
         if now_date == pos.open_date:
-            if (kline_date.hour == 14 or kline_date.hour == 22) and kline_date.minute >= 50:
+            if kline_date.hour in [14, 22] and kline_date.minute >= 50:
                 return Operation('lock', mmd, msg='当日开仓，锁仓')
         # 如果当前有锁仓，进行解除
         if len(pos.lock_positions) > 0:
-            lock_balance = max([_p.balance for _p in pos.lock_positions.values()])
+            lock_balance = max(_p.balance for _p in pos.lock_positions.values())
             if lock_balance > 0:
                 return Operation('unlock', mmd, msg='解除锁仓')
 
@@ -137,23 +147,19 @@ class StrategyFuturesXDZS(Strategy):
         #   超过中枢 zg/zd 后，笔的盘整/趋势背驰，买卖点进行平仓
 
         if 'buy' in mmd and high_xd.type == 'up' and high_xd.done:
-            opts.append(
-                Operation('sell', mmd, msg=f'向上线段完成，卖出平仓')
-            )
+            opts.append(Operation('sell', mmd, msg='向上线段完成，卖出平仓'))
         if 'sell' in mmd and high_xd.type == 'down' and high_xd.done:
-            opts.append(
-                Operation('sell', mmd, msg=f'向下线段完成，卖出平仓')
-            )
+            opts.append(Operation('sell', mmd, msg='向下线段完成，卖出平仓'))
 
         if 'buy' in mmd and price > high_xd_zs.zd and high_bi.type == 'up' and self.bi_td(high_bi, high_data) \
-                and (high_bi.bc_exists(['pz', 'qs'], '|') or high_bi.mmd_exists(['1sell', '2sell', '3sell'], '|')):
+                    and (high_bi.bc_exists(['pz', 'qs'], '|') or high_bi.mmd_exists(['1sell', '2sell', '3sell'], '|')):
             opts.append(
                 Operation('sell', mmd,
                           msg=f'做多超过中枢低点后，笔出现 背驰 （{high_bi.line_bcs("|")}） 买卖点 （{high_bi.line_mmds("|")}） 后平仓')
             )
 
         if 'sell' in mmd and price < high_xd_zs.zg and high_bi.type == 'down' and self.bi_td(high_bi, high_data) \
-                and (high_bi.bc_exists(['pz', 'qs'], '|') or high_bi.mmd_exists(['1buy', '2buy', '3buy'], '|')):
+                    and (high_bi.bc_exists(['pz', 'qs'], '|') or high_bi.mmd_exists(['1buy', '2buy', '3buy'], '|')):
             opts.append(
                 Operation('sell', mmd,
                           msg=f'做多超过中枢低点后，笔出现 背驰 （{high_bi.line_bcs("|")}） 买卖点 （{high_bi.line_mmds("|")}） 后平仓')
@@ -161,14 +167,14 @@ class StrategyFuturesXDZS(Strategy):
 
         # 如果买入做多后，价格超过中枢 zg （中枢高点），即使一个笔背驰，也平仓出来
         if 'buy' in mmd and price > high_xd_zs.zg and high_bi.type == 'up' and self.bi_td(high_bi, high_data) \
-                and high_bi.bc_exists(['bi', 'pz', 'qs'], '|'):
+                    and high_bi.bc_exists(['bi', 'pz', 'qs'], '|'):
             opts.append(
                 Operation('sell', mmd,
                           msg=f'做多超过中枢高点后，笔出现 背驰 （{high_bi.line_bcs("|")}）后平仓')
             )
         # 如果买入做空后，价格超过中枢 zd （中枢低点），即使一个笔背驰，也平仓出来
         if 'sell' in mmd and price < high_xd_zs.zd and high_bi.type == 'down' and self.bi_td(high_bi, high_data) \
-                and high_bi.bc_exists(['bi', 'pz', 'qs'], '|'):
+                    and high_bi.bc_exists(['bi', 'pz', 'qs'], '|'):
             opts.append(
                 Operation('sell', mmd,
                           msg=f'做空超过中枢低点后，笔出现 背驰 （{high_bi.line_bcs("|")}）后平仓')

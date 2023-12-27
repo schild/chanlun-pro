@@ -32,7 +32,7 @@ class VNPYTrader(BackTestTrader):
         """
         price_info = self.datas.last_k_info(code)
         price = price_info['close']
-        self.cta.write_log('买入开仓做多，价格 %s 数量 %s 交易信号 %s' % (price, self.fixed_amount, opt.msg))
+        self.cta.write_log(f'买入开仓做多，价格 {price} 数量 {self.fixed_amount} 交易信号 {opt.msg}')
         self.cta.buy(price, self.fixed_amount)
         return {'price': price, 'amount': self.fixed_amount}
 
@@ -43,7 +43,7 @@ class VNPYTrader(BackTestTrader):
         price_info = self.datas.last_k_info(code)
         price = price_info['close']
 
-        self.cta.write_log('卖出开仓做空，价格 %s 数量 %s 交易信号 %s' % (price, self.fixed_amount, opt.msg))
+        self.cta.write_log(f'卖出开仓做空，价格 {price} 数量 {self.fixed_amount} 交易信号 {opt.msg}')
         self.cta.short(price, self.fixed_amount)
         return {'price': price, 'amount': self.fixed_amount}
 
@@ -54,7 +54,7 @@ class VNPYTrader(BackTestTrader):
         price_info = self.datas.last_k_info(code)
         price = price_info['close']
 
-        self.cta.write_log('卖出平仓做多，价格 %s 数量 %s 交易信号 %s' % (price, pos.amount, opt.msg))
+        self.cta.write_log(f'卖出平仓做多，价格 {price} 数量 {pos.amount} 交易信号 {opt.msg}')
         self.cta.sell(price, pos.amount)
         return {'price': price, 'amount': pos.amount}
 
@@ -64,7 +64,7 @@ class VNPYTrader(BackTestTrader):
         """
         price_info = self.datas.last_k_info(code)
         price = price_info['close']
-        self.cta.write_log('买入平仓做空，价格 %s 数量 %s 交易信号 %s' % (price, pos.amount, opt.msg))
+        self.cta.write_log(f'买入平仓做空，价格 {price} 数量 {pos.amount} 交易信号 {opt.msg}')
         self.cta.cover(price, pos.amount)
         return {'price': price, 'amount': pos.amount}
 
@@ -212,7 +212,7 @@ class VNPYTrader(BackTestTrader):
         """
         price_info = self.datas.last_k_info(code)
         price = price_info['close']
-        self.cta.write_log('买入开仓做多，价格 %s 数量 %s 交易信号 %s' % (price, self.fixed_amount, opt.msg))
+        self.cta.write_log(f'买入开仓做多，价格 {price} 数量 {self.fixed_amount} 交易信号 {opt.msg}')
         self.cta.buy(price, self.fixed_amount)
         return {'price': price, 'amount': self.fixed_amount}
 
@@ -223,7 +223,7 @@ class VNPYTrader(BackTestTrader):
         price_info = self.datas.last_k_info(code)
         price = price_info['close']
 
-        self.cta.write_log('卖出开仓做空，价格 %s 数量 %s 交易信号 %s' % (price, self.fixed_amount, opt.msg))
+        self.cta.write_log(f'卖出开仓做空，价格 {price} 数量 {self.fixed_amount} 交易信号 {opt.msg}')
         self.cta.short(price, self.fixed_amount)
         return {'price': price, 'amount': self.fixed_amount}
 
@@ -234,7 +234,7 @@ class VNPYTrader(BackTestTrader):
         price_info = self.datas.last_k_info(code)
         price = price_info['close']
 
-        self.cta.write_log('卖出平仓做多，价格 %s 数量 %s 交易信号 %s' % (price, pos.amount, opt.msg))
+        self.cta.write_log(f'卖出平仓做多，价格 {price} 数量 {pos.amount} 交易信号 {opt.msg}')
         self.cta.sell(price, pos.amount)
         return {'price': price, 'amount': pos.amount}
 
@@ -244,7 +244,7 @@ class VNPYTrader(BackTestTrader):
         """
         price_info = self.datas.last_k_info(code)
         price = price_info['close']
-        self.cta.write_log('买入平仓做空，价格 %s 数量 %s 交易信号 %s' % (price, pos.amount, opt.msg))
+        self.cta.write_log(f'买入平仓做空，价格 {price} 数量 {pos.amount} 交易信号 {opt.msg}')
         self.cta.cover(price, pos.amount)
         return {'price': price, 'amount': pos.amount}
 
@@ -413,7 +413,7 @@ class BaseStrategy(CtaTemplate):
         ]
 
         for interval in self.intervals:
-            _key = '%s_%s' % (interval['windows'], interval['interval'].value)
+            _key = f"{interval['windows']}_{interval['interval'].value}"
             self.bgs[_key] = BarGenerator(
                 self.on_bar,
                 window=interval['windows'],

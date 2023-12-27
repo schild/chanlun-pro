@@ -33,10 +33,12 @@ class StrategyXDMMD(Strategy):
         if xd.type == 'up' and bi_1.type == 'up' and bi_1.high < bi_2.high and self.bi_td(bi_1, data):
             # 线段向上，找转折，最后一笔的高点要小于前一笔的高点
             pass
-        elif xd.type == 'down' and bi_1.type == 'down' and bi_1.low > bi_2.low and self.bi_td(bi_1, data):
-            # 线段向下，找转折，最后一笔的低点要大于前一笔的低点
-            pass
-        else:
+        elif (
+            xd.type != 'down'
+            or bi_1.type != 'down'
+            or bi_1.low <= bi_2.low
+            or not self.bi_td(bi_1, data)
+        ):
             return opts
 
         # 保证唯一
@@ -45,26 +47,29 @@ class StrategyXDMMD(Strategy):
 
         for mmd in mmds:
 
-            if self._max_loss_rate is not None:
-                if 'buy' in mmd:
-                    loss_price = price - (price * (abs(self._max_loss_rate) / 100))
-                    loss_price = max(loss_price, xd.low)
-                else:
-                    loss_price = price + (price * (abs(self._max_loss_rate) / 100))
-                    loss_price = min(loss_price, xd.high)
+            if self._max_loss_rate is None:
+                loss_price = xd.low if 'buy' in mmd else xd.high
+            elif 'buy' in mmd:
+                loss_price = price - (price * (abs(self._max_loss_rate) / 100))
+                loss_price = max(loss_price, xd.low)
             else:
-                if 'buy' in mmd:
-                    loss_price = xd.low
-                else:
-                    loss_price = xd.high
-
-            opts.append(Operation('buy', mmd, loss_price, info={
-                'fx_datetime': xd.end.k.date,
-                'cl_datas': {
-                    'xd': xd,
-                    'price': price,
-                }
-            }, msg='%s 级别 (MMD: %s Loss: %s ' % (data.get_frequency(), xd.line_mmds(), loss_price)))
+                loss_price = price + (price * (abs(self._max_loss_rate) / 100))
+                loss_price = min(loss_price, xd.high)
+            opts.append(
+                Operation(
+                    'buy',
+                    mmd,
+                    loss_price,
+                    info={
+                        'fx_datetime': xd.end.k.date,
+                        'cl_datas': {
+                            'xd': xd,
+                            'price': price,
+                        },
+                    },
+                    msg=f'{data.get_frequency()} 级别 (MMD: {xd.line_mmds()} Loss: {loss_price} ',
+                )
+            )
 
         return opts
 
@@ -77,21 +82,26 @@ class StrategyXDMMD(Strategy):
 
         # 止盈止损检查
         if pos.loss_price is not None:
-            if 'buy' in mmd:
-                if price < pos.loss_price:
-                    return Operation('sell', mmd, msg='%s 止损' % mmd)
-            elif 'sell' in mmd:
-                if price > pos.loss_price:
-                    return Operation('sell', mmd, msg='%s 止损' % mmd)
-
+            if (
+                'buy' in mmd
+                and price < pos.loss_price
+                or 'buy' not in mmd
+                and 'sell' in mmd
+                and price > pos.loss_price
+            ):
+                return Operation('sell', mmd, msg=f'{mmd} 止损')
         # 自建仓之后的反向线段
         pos_xd: XD
         pos_xd = pos.info['cl_datas']['xd']
-        xd = None
-        for _xd in data.get_xds()[::-1]:
-            if _xd.start.k.date > pos_xd.start.k.date and _xd.type != pos_xd.type:
-                xd = _xd
-                break
+        xd = next(
+            (
+                _xd
+                for _xd in data.get_xds()[::-1]
+                if _xd.start.k.date > pos_xd.start.k.date
+                and _xd.type != pos_xd.type
+            ),
+            None,
+        )
         if xd is None:
             return False
 
@@ -105,33 +115,51 @@ class StrategyXDMMD(Strategy):
             # 买入做多，检查卖点
             # 笔出现一卖点
             if bi_1.type == 'up' and self.bi_td(bi_1, data) and bi_1.mmd_exists(['1sell', '2sell']):
-                return Operation('sell', mmd, msg='%s %s 笔出现 卖点 (%s) 背驰 （%s），多仓清仓' % (
-                    mmd, data.get_frequency(), bi_1.line_mmds(), bi_1.line_bcs()))
+                return Operation(
+                    'sell',
+                    mmd,
+                    msg=f'{mmd} {data.get_frequency()} 笔出现 卖点 ({bi_1.line_mmds()}) 背驰 （{bi_1.line_bcs()}），多仓清仓',
+                )
             # 反向线段有可能结束的时候，清仓
             if xd.type == 'up' and bi_1.type == 'up' and bi_1.high < bi_2.high and self.bi_td(bi_1, data):
-                return Operation('sell', mmd, msg='%s %s 向上线段有可能终结 后笔（%s）低于前笔（%s），多仓清仓' % (
-                    mmd, data.get_frequency(), bi_1.high, bi_2.high))
+                return Operation(
+                    'sell',
+                    mmd,
+                    msg=f'{mmd} {data.get_frequency()} 向上线段有可能终结 后笔（{bi_1.high}）低于前笔（{bi_2.high}），多仓清仓',
+                )
             # 线段出现背驰、卖点，清仓
             if xd.type == 'up' and xd.is_done() and (
                     xd.mmd_exists(['1sell', '2sell', 'l2sell', '3sell', 'l3sell'])
                     or xd.bc_exists(['xd', 'pz', 'qs'])):
-                return Operation('sell', mmd, msg='%s %s 线段出现 卖点 (%s) 背驰 （%s），多仓清仓' %
-                                                  (mmd, data.get_frequency(), xd.line_mmds(), xd.line_bcs()))
+                return Operation(
+                    'sell',
+                    mmd,
+                    msg=f'{mmd} {data.get_frequency()} 线段出现 卖点 ({xd.line_mmds()}) 背驰 （{xd.line_bcs()}），多仓清仓',
+                )
 
         if 'sell' in mmd:
             # 买入做多，检查卖点
             # 笔出现一买点
             if bi_1.type == 'down' and self.bi_td(bi_1, data) and bi_1.mmd_exists(['1buy', '2buy']):
-                return Operation('sell', mmd, msg='%s %s 笔出现 卖点 (%s) 背驰 （%s），空仓清仓' % (
-                    mmd, data.get_frequency(), bi_1.line_mmds(), bi_1.line_bcs()))
+                return Operation(
+                    'sell',
+                    mmd,
+                    msg=f'{mmd} {data.get_frequency()} 笔出现 卖点 ({bi_1.line_mmds()}) 背驰 （{bi_1.line_bcs()}），空仓清仓',
+                )
             # 反向线段有可能结束的时候，清仓
             if xd.type == 'down' and bi_1.type == 'down' and bi_1.low > bi_2.low and self.bi_td(bi_1, data):
-                return Operation('sell', mmd, msg='%s %s 向下线段有可能终结 后笔（%s）高于前笔（%s），空仓清仓' % (
-                    mmd, data.get_frequency(), bi_1.low, bi_2.low))
+                return Operation(
+                    'sell',
+                    mmd,
+                    msg=f'{mmd} {data.get_frequency()} 向下线段有可能终结 后笔（{bi_1.low}）高于前笔（{bi_2.low}），空仓清仓',
+                )
             # 线段出现背驰、卖点，清仓
             if xd.type == 'down' and xd.is_done() and (
                     xd.mmd_exists(['1buy', '2buy', 'l2buy', '3buy', 'l3buy'])
                     or xd.bc_exists(['xd', 'pz', 'qs'])):
-                return Operation('sell', mmd, msg='%s %s 线段出现 买点 (%s) 背驰 （%s），空仓清仓' %
-                                                  (mmd, data.get_frequency(), xd.line_mmds(), xd.line_bcs()))
+                return Operation(
+                    'sell',
+                    mmd,
+                    msg=f'{mmd} {data.get_frequency()} 线段出现 买点 ({xd.line_mmds()}) 背驰 （{xd.line_bcs()}），空仓清仓',
+                )
         return False

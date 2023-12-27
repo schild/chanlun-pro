@@ -56,7 +56,7 @@ try:
     TR.set_strategy(STR)
     TR.set_data(Data)
 
-    logger.info("Run symbols: %s" % run_codes)
+    logger.info(f"Run symbols: {run_codes}")
 
     while True:
         try:
@@ -65,7 +65,7 @@ try:
             if seconds % (60 * 60) == 0:
                 # 每一个小时，更新 24 小时交易量排行代码
                 run_codes = ex.ticker24HrRank(run_num)
-                logger.info("Run symbols: %s" % run_codes)
+                logger.info(f"Run symbols: {run_codes}")
 
             if seconds % (5 * 60) != 0:
                 time.sleep(1)

@@ -85,15 +85,14 @@ class ExchangeBinance(Exchange):
             return self.g_all_stocks
 
         markets = self.exchange.load_markets()
-        __all_stocks = []
-        for _, s in markets.items():
-            if s["quote"] == "USDT":
-                __all_stocks.append(
-                    {
-                        "code": s["base"] + "/" + s["quote"],
-                        "name": s["base"] + "/" + s["quote"],
-                    }
-                )
+        __all_stocks = [
+            {
+                "code": s["base"] + "/" + s["quote"],
+                "name": s["base"] + "/" + s["quote"],
+            }
+            for _, s in markets.items()
+            if s["quote"] == "USDT"
+        ]
         self.g_all_stocks = __all_stocks
         return self.g_all_stocks
 
@@ -229,7 +228,7 @@ class ExchangeBinance(Exchange):
         )
         kline_pd = kline_pd[["code", "date", "open", "close", "high", "low", "volume"]]
         # 自定义级别，需要进行转换
-        if frequency in ["10m", "2m"] and len(kline_pd) > 0:
+        if frequency in {"10m", "2m"} and len(kline_pd) > 0:
             kline_pd = convert_currency_kline_frequency(kline_pd, frequency)
         return kline_pd
 
@@ -291,13 +290,12 @@ class ExchangeBinance(Exchange):
                 symbols=[code] if code != "" else None
             )
         except Exception as e:
-            if "precision" in str(e):
-                self.__init__()
-                position = self.exchange.fetch_positions(
-                    symbols=[code] if code != "" else None
-                )
-            else:
+            if "precision" not in str(e):
                 raise e
+            self.__init__()
+            position = self.exchange.fetch_positions(
+                symbols=[code] if code != "" else None
+            )
         """
         symbol 标的
         entryPrice 价格

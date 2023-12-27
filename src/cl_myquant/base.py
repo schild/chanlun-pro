@@ -71,16 +71,18 @@ class MyQuantData(MarketDatas):
         frequency = None
         for b in bars:
             frequency = b['frequency']
-            klines.append({
-                'symbol': b['symbol'],
-                'frequency': b['frequency'],
-                'open': b['open'],
-                'close': b['close'],
-                'high': b['high'],
-                'low': b['low'],
-                'volume': b['volume'],
-                'eob': b['eob'],
-            })
+            klines.append(
+                {
+                    'symbol': b['symbol'],
+                    'frequency': frequency,
+                    'open': b['open'],
+                    'close': b['close'],
+                    'high': b['high'],
+                    'low': b['low'],
+                    'volume': b['volume'],
+                    'eob': b['eob'],
+                }
+            )
         klines = pd.DataFrame(klines)
         klines.loc[:, 'code'] = klines['symbol']
         klines.loc[:, 'date'] = pd.to_datetime(klines['eob'])

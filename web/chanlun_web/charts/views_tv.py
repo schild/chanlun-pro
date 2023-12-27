@@ -183,10 +183,12 @@ def symbols(request):
         "session": market_session[market],
         "timezone": market_timezone[market],
         "supported_resolutions": [
-            v for k, v in frequency_maps.items() if k in market_frequencys[market]
+            v
+            for k, v in frequency_maps.items()
+            if k in market_frequencys[market]
         ],
         "has_intraday": True,
-        "has_seconds": True if market == "futures" else False,
+        "has_seconds": market == "futures",
         "has_daily": True,
         "has_weekly_and_monthly": True,
     }
@@ -214,28 +216,27 @@ def search(request):
         or query.lower()
         in "".join([pinyin.get_pinyin(_p)[0] for _p in stock["name"]]).lower()
     ]
-    res_stocks = res_stocks[0 : int(limit)]
+    res_stocks = res_stocks[:int(limit)]
 
-    infos = []
-    for stock in res_stocks:
-        infos.append(
-            {
-                "symbol": stock["code"],
-                "name": stock["code"],
-                "full_name": f'{exchange}:{stock["code"]}',
-                "description": stock["name"],
-                "exchange": exchange,
-                "ticker": f'{exchange}:{stock["code"]}',
-                "type": type,
-                "session": market_session[exchange],
-                "timezone": market_timezone[exchange],
-                "supported_resolutions": [
-                    v
-                    for k, v in frequency_maps.items()
-                    if k in market_frequencys[exchange]
-                ],
-            }
-        )
+    infos = [
+        {
+            "symbol": stock["code"],
+            "name": stock["code"],
+            "full_name": f'{exchange}:{stock["code"]}',
+            "description": stock["name"],
+            "exchange": exchange,
+            "ticker": f'{exchange}:{stock["code"]}',
+            "type": type,
+            "session": market_session[exchange],
+            "timezone": market_timezone[exchange],
+            "supported_resolutions": [
+                v
+                for k, v in frequency_maps.items()
+                if k in market_frequencys[exchange]
+            ],
+        }
+        for stock in res_stocks
+    ]
     return response_as_json(infos)
 
 
@@ -546,7 +547,7 @@ def judge_pc_or_mobile(ua):
 
     if _long_matches.search(factor) is not None:
         is_mobile = True
-    user_agent = factor[0:4]
+    user_agent = factor[:4]
     if _short_matches.search(user_agent) is not None:
         is_mobile = True
 

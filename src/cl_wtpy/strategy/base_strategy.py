@@ -45,7 +45,7 @@ class BaseStrategy(BaseCtaStrategy):
         """
         for _code in [self.code]:
             for _p in [self.period]:
-                cl_kye = '%s_%s' % (_code, _p)
+                cl_kye = f'{_code}_{_p}'
                 bars = context.stra_get_bars(_code, _p, 2000, isMain=True)
                 self.cl_datas[cl_kye] = cl.CL(_code, _p).process_klines(self.bars_to_df_klines(_code, bars))
 
@@ -67,7 +67,7 @@ class BaseStrategy(BaseCtaStrategy):
         """
         cds = []
         for period in [self.period]:
-            cl_key = '%s_%s' % (code, period)
+            cl_key = f'{code}_{period}'
             df_bars = context.stra_get_bars(code, period, 10, isMain=True)
             self.cl_datas[cl_key].process_klines(self.bars_to_df_klines(code, df_bars))
             cds.append(self.cl_datas[cl_key])
@@ -83,7 +83,7 @@ class BaseStrategy(BaseCtaStrategy):
             code=code, mmd=opt.mmd, type='long', balance=1, price=0, amount=amount,
             loss_price=opt.loss_price, open_msg=opt.msg, info=opt.info
         )
-        pos_key = '%s_%s' % (code, opt.mmd)
+        pos_key = f'{code}_{opt.mmd}'
         self.positions[pos_key] = pos
         return res
 
@@ -97,14 +97,14 @@ class BaseStrategy(BaseCtaStrategy):
             code=code, mmd=opt.mmd, type='short', balance=1, price=0, amount=amount,
             loss_price=opt.loss_price, open_msg=opt.msg, info=opt.info
         )
-        pos_key = '%s_%s' % (code, opt.mmd)
+        pos_key = f'{code}_{opt.mmd}'
         self.positions[pos_key] = pos
         return res
 
     def close_buy(self, context: CtaContext, code, opt: Operation):
-        pos_key = '%s_%s' % (code, opt.mmd)
+        pos_key = f'{code}_{opt.mmd}'
         if pos_key not in self.positions.keys():
-            context.stra_log_text('平多仓，没有查找到对应的持仓记录：%s' % pos_key)
+            context.stra_log_text(f'平多仓，没有查找到对应的持仓记录：{pos_key}')
             return None
         pos: POSITION = self.positions[pos_key]
         res = context.stra_exit_long(code, pos.amount, 'exitlong')
@@ -114,9 +114,9 @@ class BaseStrategy(BaseCtaStrategy):
         return res
 
     def close_sell(self, context: CtaContext, code, opt: Operation):
-        pos_key = '%s_%s' % (code, opt.mmd)
+        pos_key = f'{code}_{opt.mmd}'
         if pos_key not in self.positions.keys():
-            context.stra_log_text('平空仓，没有查找到对应的持仓记录：%s' % pos_key)
+            context.stra_log_text(f'平空仓，没有查找到对应的持仓记录：{pos_key}')
             return None
         pos: POSITION = self.positions[pos_key]
         res = context.stra_exit_short(code, pos.amount, 'exitshort')
@@ -127,10 +127,10 @@ class BaseStrategy(BaseCtaStrategy):
 
     def on_calculate(self, context: CtaContext):
 
-        for code in [self.code]:
-            # 根据实际交易品种，定义交易数量
-            trdUnit = 1
+        # 根据实际交易品种，定义交易数量
+        trdUnit = 1
 
+        for code in [self.code]:
             # 读取最新的行情数据，增量更新，不需要太多
             cds = self.get_cl_datas(code, context)
             # 读取当前仓位

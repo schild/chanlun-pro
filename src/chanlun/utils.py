@@ -31,16 +31,11 @@ def config_get_dingding_keys(market):
         return db_dd_key
     if market == "a":
         return config.DINGDING_KEY_A
-    if market == "a":
-        return config.DINGDING_KEY_HK
     if market == "us":
         return config.DINGDING_KEY_US
     if market == "futures":
         return config.DINGDING_KEY_FUTURES
-    if market == "currency":
-        return config.DINGDING_KEY_CURRENCY
-
-    return None
+    return config.DINGDING_KEY_CURRENCY if market == "currency" else None
 
 
 def config_get_feishu_keys(market):
@@ -88,7 +83,7 @@ def send_dd_msg(market: str, msg: Union[str, dict]):
         return timestamp, _sign
 
     t, s = sign()
-    url = url % (dd_info["token"], t, s)
+    url %= (dd_info["token"], t, s)
     if isinstance(msg, str):
         res = requests.post(
             url,

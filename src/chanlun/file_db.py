@@ -110,7 +110,7 @@ class FileCacheDB(object):
             if _klines["date"].isnull().any():
                 return None
             # 不返回最后一行
-            _klines = _klines.iloc[0:-1:]
+            _klines = _klines.iloc[:-1]
 
         # 加一个随机概率，去清理历史的缓存，避免太多占用空间
         if random.randint(0, 100) <= 5:
@@ -302,9 +302,7 @@ class FileCacheDB(object):
         else:
             with open(filename, "rb") as fp:
                 cd = pickle.load(fp)
-        limit = 200000
-        if len(cd.get_klines()) > 10000:
-            limit = 1000
+        limit = 1000 if len(cd.get_klines()) > 10000 else 200000
         klines = db_ex.klines(code, frequency, args={"limit": limit})
         cd.process_klines(klines)
         with open(filename, "wb") as fp:

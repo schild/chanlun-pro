@@ -84,11 +84,9 @@ class ExchangeIB(Exchange):
         weekday = now.weekday()
         hour = now.hour
         minute = now.minute
-        if weekday in [0, 1, 2, 3, 4] and (
+        return weekday in {0, 1, 2, 3, 4} and (
             (10 <= hour < 16) or (hour == 9 and minute >= 30)
-        ):
-            return True
-        return False
+        )
 
     @retry(
         stop=stop_after_attempt(2),
@@ -156,7 +154,7 @@ class ExchangeIB(Exchange):
                 self.tz
             )
 
-        if len(klines_df) > 0 and frequency in ["2m"]:
+        if len(klines_df) > 0 and frequency in {"2m"}:
             klines_df = convert_us_kline_frequency(klines_df, "2m")
 
         if len(klines_df) == 0:
@@ -238,9 +236,7 @@ class ExchangeIB(Exchange):
         # 'SMA': 1000650.51, 'TotalCashValue': 999724.39
         # }
         balance = rd.Robj().brpop(args["key"], timeout=30)
-        if balance is None:
-            return None
-        return json.loads(balance[1])
+        return None if balance is None else json.loads(balance[1])
 
     def positions(self, code: str = ""):
         """
@@ -253,9 +249,7 @@ class ExchangeIB(Exchange):
         rd.Robj().lpush(CmdEnum.POSITIONS.value, json.dumps(args))
 
         positions = rd.Robj().brpop(args["key"], timeout=30)
-        if positions is None:
-            return None
-        return json.loads(positions[1])
+        return None if positions is None else json.loads(positions[1])
 
     def order(self, code: str, o_type: str, amount: float, args=None):
         """
@@ -265,9 +259,7 @@ class ExchangeIB(Exchange):
         rd.Robj().lpush(CmdEnum.ORDERS.value, json.dumps(args))
 
         res = rd.Robj().brpop([args["key"]], 0)
-        if res is None:
-            return False
-        return json.loads(res[1])
+        return False if res is None else json.loads(res[1])
 
 
 if __name__ == "__main__":

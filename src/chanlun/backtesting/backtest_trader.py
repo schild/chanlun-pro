@@ -197,8 +197,8 @@ class BackTestTrader(object):
         """
         if save_infos is None:
             save_infos = fdb.cache_pkl_from_file(key)
-            if save_infos is None:
-                return False
+        if save_infos is None:
+            return False
         if "name" in save_infos.keys():
             self.name = save_infos["name"]
             self.mode = save_infos["mode"]
@@ -223,17 +223,13 @@ class BackTestTrader(object):
         """
         回测中方法，获取股票代码当前的价格，根据最小周期 k 线收盘价
         """
-        price_info = self.datas.last_k_info(code)
-        return price_info
+        return self.datas.last_k_info(code)
 
     def get_now_datetime(self):
         """
         获取当前时间
         """
-        if self.mode == "real":
-            return datetime.datetime.now()
-        # 回测时用回测的当前时间
-        return self.datas.now_date
+        return datetime.datetime.now() if self.mode == "real" else self.datas.now_date
 
     # 运行的唯一入口
     def run(self, code):
@@ -358,7 +354,7 @@ class BackTestTrader(object):
                         4,
                     )
                     now_profit += pos.profit_rate / 100 * pos.balance
-                if pos.type == "做空":
+                elif pos.type == "做空":
                     high_profit_rate = round(
                         (
                             (pos.price - price_info["low"])
@@ -404,11 +400,11 @@ class BackTestTrader(object):
                             lock_pos.profit_rate / 100
                         )
                     else:
-                        if lock_pos.balance != 0 and lock_pos.type == "做多":
+                        if lock_pos.type == "做多":
                             now_profit += (
                                 (price_info["close"] - lock_pos.price) / pos.price
                             ) * (lock_pos.amount * lock_pos.price)
-                        elif lock_pos.balance != 0 and lock_pos.type == "做空":
+                        elif lock_pos.type == "做空":
                             now_profit += (
                                 (lock_pos.price - price_info["close"]) / pos.price
                             ) * (lock_pos.amount * lock_pos.price)
@@ -454,8 +450,7 @@ class BackTestTrader(object):
 
         poss = pd.DataFrame(poss)
         poss = poss.sort_values("open_datetime", ascending=False)
-        codes = list(poss["code"].to_numpy())
-        return codes
+        return list(poss["code"].to_numpy())
 
     def hold_positions(self):
         """
@@ -463,9 +458,11 @@ class BackTestTrader(object):
         """
         poss: List[POSITION] = []
         for code in self.positions.keys():
-            for mmd, pos in self.positions[code].items():
-                if pos.balance != 0:
-                    poss.append(pos)
+            poss.extend(
+                pos
+                for mmd, pos in self.positions[code].items()
+                if pos.balance != 0
+            )
         return poss
 
     # 查询代码买卖点的持仓信息
@@ -497,7 +494,6 @@ class BackTestTrader(object):
             use_balance = 100000 * min(1.0, opt.pos_rate)
             price = self.get_price(code)["close"]
             amount = round((use_balance / price) * 0.99, 4)
-            return {"price": price, "amount": amount}
         else:
             if len(self.hold_positions()) >= self.max_pos:
                 return False
@@ -515,14 +511,15 @@ class BackTestTrader(object):
             if amount < 0:
                 return False
             if use_balance > self.balance:
-                self._print_log("%s - %s 做多开仓 资金余额不足" % (code, opt.mmd))
+                self._print_log(f"{code} - {opt.mmd} 做多开仓 资金余额不足")
                 return False
 
             fee = use_balance * self.fee_rate
             self.balance -= use_balance + fee
             self.fee_total += fee
 
-            return {"price": price, "amount": amount}
+
+        return {"price": price, "amount": amount}
 
     # 做空卖出
     def open_sell(self, code, opt: Operation, amount: float = None):
@@ -530,7 +527,6 @@ class BackTestTrader(object):
             use_balance = 100000 * min(1.0, opt.pos_rate)
             price = self.get_price(code)["close"]
             amount = round((use_balance / price) * 0.99, 4)
-            return {"price": price, "amount": amount}
         else:
             if len(self.hold_positions()) >= self.max_pos:
                 return False
@@ -549,52 +545,42 @@ class BackTestTrader(object):
                 return False
 
             if use_balance > self.balance:
-                self._print_log("%s - %s 做空开仓 资金余额不足" % (code, opt.mmd))
+                self._print_log(f"{code} - {opt.mmd} 做空开仓 资金余额不足")
                 return False
 
             fee = use_balance * self.fee_rate
             self.balance -= use_balance + fee
             self.fee_total += fee
 
-            return {"price": price, "amount": amount}
+
+        return {"price": price, "amount": amount}
 
     # 做多平仓
     def close_buy(self, code, pos: POSITION, opt: Operation):
-        # 如果是止损的话，按照止损价格
-        if "止损" in opt.msg:
-            # price = pos.loss_price
-            price = self.get_price(code)["close"]
-        else:
-            price = self.get_price(code)["close"]
-
+        # price = pos.loss_price
+        price = self.get_price(code)["close"]
         amount = pos.amount * opt.pos_rate
 
         if self.mode == "signal":
             net_profit = (price * amount) - (pos.price * amount)
             self.balance += net_profit
-            return {"price": price, "amount": amount}
         else:
             hold_balance = price * amount
             fee = hold_balance * self.fee_rate
             self.balance += hold_balance - fee
             self.fee_total += fee
-            return {"price": price, "amount": amount}
+
+        return {"price": price, "amount": amount}
 
     # 做空平仓
     def close_sell(self, code, pos: POSITION, opt: Operation):
-        # 如果是止损的话，按照止损价格
-        if "止损" in opt.msg:
-            # price = pos.loss_price
-            price = self.get_price(code)["close"]
-        else:
-            price = self.get_price(code)["close"]
-
+        # price = pos.loss_price
+        price = self.get_price(code)["close"]
         amount = pos.amount * opt.pos_rate
 
         if self.mode == "signal":
             net_profit = (pos.price * amount) - (price * amount)
             self.balance += net_profit
-            return {"price": price, "amount": amount}
         else:
             hold_balance = price * amount
             pos_balance = pos.price * amount
@@ -603,7 +589,8 @@ class BackTestTrader(object):
             self.balance += pos_balance + profit - fee
             self.fee_total += fee
 
-            return {"price": price, "amount": amount}
+
+        return {"price": price, "amount": amount}
 
     # 打印日志信息
     def _print_log(self, msg):
@@ -710,11 +697,7 @@ class BackTestTrader(object):
                 if opt.key in pos.close_keys.keys():
                     return False
                 # 修正错误的平仓比例
-                opt.pos_rate = (
-                    pos.now_pos_rate
-                    if pos.now_pos_rate < opt.pos_rate
-                    else opt.pos_rate
-                )
+                opt.pos_rate = min(pos.now_pos_rate, opt.pos_rate)
 
                 if self.is_stock and pos.open_date == self.get_now_datetime().strftime(
                     "%Y-%m-%d"
@@ -738,13 +721,10 @@ class BackTestTrader(object):
                     hold_balance
                     - sell_balance
                     + sum(
-                        [
-                            (_p.amount * _p.price) * (_p.profit_rate / 100)
-                            for _p in pos.lock_positions.values()
-                        ]
+                        (_p.amount * _p.price) * (_p.profit_rate / 100)
+                        for _p in pos.lock_positions.values()
                     )
-                    - fee_use
-                )
+                ) - fee_use
                 profit_rate = round((profit / hold_balance) * 100, 2)
 
                 self._print_log(
@@ -795,11 +775,7 @@ class BackTestTrader(object):
                 if opt.key in pos.close_keys.keys():
                     return False
                 # 修正错误的平仓比例
-                opt.pos_rate = (
-                    pos.now_pos_rate
-                    if pos.now_pos_rate < opt.pos_rate
-                    else opt.pos_rate
-                )
+                opt.pos_rate = min(pos.now_pos_rate, opt.pos_rate)
 
                 if self.is_stock and pos.open_date == self.get_now_datetime().strftime(
                     "%Y-%m-%d"
@@ -822,13 +798,10 @@ class BackTestTrader(object):
                     sell_balance
                     - hold_balance
                     + sum(
-                        [
-                            (_p.amount * _p.price) * (_p.profit_rate / 100)
-                            for _p in pos.lock_positions.values()
-                        ]
+                        (_p.amount * _p.price) * (_p.profit_rate / 100)
+                        for _p in pos.lock_positions.values()
                     )
-                    - fee_use
-                )
+                ) - fee_use
                 profit_rate = round((profit / hold_balance) * 100, 2)
 
                 self._print_log(
@@ -899,7 +872,7 @@ class BackTestTrader(object):
         lock_balance = (
             0
             if len(pos.lock_positions) == 0
-            else max([_p.balance for _p in pos.lock_positions.values()])
+            else max(_p.balance for _p in pos.lock_positions.values())
         )
         if lock_balance != 0:
             return False
@@ -982,7 +955,7 @@ class BackTestTrader(object):
         lock_balance = (
             0
             if len(pos.lock_positions) == 0
-            else max([_p.balance for _p in pos.lock_positions.values()])
+            else max(_p.balance for _p in pos.lock_positions.values())
         )
         if lock_balance == 0:
             return False
