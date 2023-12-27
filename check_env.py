@@ -70,8 +70,7 @@ def check_env():
             key_str = fp.read()
             mac_re = r"([0-9a-f]{2}(?::[0-9a-f]{2}){5})"
             key_str = str(key_str)
-            match = re.search(mac_re, key_str)
-            if match:
+            if match := re.search(mac_re, key_str):
                 print("授权信息：", match.group(0))
 
     print("环境OK")

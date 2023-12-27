@@ -609,7 +609,7 @@ try:
         "SH.688981",
     ]
 
-    logger.info("Run symbols:  %s" % run_codes)
+    logger.info(f"Run symbols:  {run_codes}")
 
     frequencys = ["d"]
 

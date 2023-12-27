@@ -41,7 +41,7 @@ class ChanlunXdmmdStrategy(BaseStrategy):
         ]
 
         for interval in self.intervals:
-            _key = '%s_%s' % (interval['windows'], interval['interval'].value)
+            _key = f"{interval['windows']}_{interval['interval'].value}"
             self.bgs[_key] = BarGenerator(
                 self.on_bar,
                 window=interval['windows'],

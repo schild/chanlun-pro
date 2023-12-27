@@ -56,11 +56,11 @@ class ExchangePolygon(Exchange):
         if len(self.g_all_stocks) > 0:
             return self.g_all_stocks
         stocks = pd.read_csv(
-            os.path.split(os.path.realpath(__file__))[0] + "/us_symbols.csv"
+            f"{os.path.split(os.path.realpath(__file__))[0]}/us_symbols.csv"
         )
-        __all_stocks = []
-        for s in stocks.iterrows():
-            __all_stocks.append({"code": s[1]["code"], "name": s[1]["name"]})
+        __all_stocks = [
+            {"code": s[1]["code"], "name": s[1]["name"]} for s in stocks.iterrows()
+        ]
         self.g_all_stocks = __all_stocks
         return self.g_all_stocks
 
@@ -114,21 +114,16 @@ class ExchangePolygon(Exchange):
                 end_date = fun.str_to_datetime(
                     fun.datetime_to_str(end_date, "%Y-%m-%d"), "%Y-%m-%d"
                 )
+            elif len(end_date) == 10:
+                end_date = fun.str_to_datetime(end_date, "%Y-%m-%d")
             else:
-                if len(end_date) == 10:
-                    end_date = fun.str_to_datetime(end_date, "%Y-%m-%d")
-                else:
-                    end_date = fun.str_to_datetime(end_date)
+                end_date = fun.str_to_datetime(end_date)
             if start_date is None:
-                if frequency == "1m":
-                    start_date = end_date - dt.timedelta(days=15)
-                elif frequency == "5m":
+                if frequency in {"1m", "5m"}:
                     start_date = end_date - dt.timedelta(days=15)
                 elif frequency == "30m":
                     start_date = end_date - dt.timedelta(days=75)
-                elif frequency == "60m":
-                    start_date = end_date - dt.timedelta(days=150)
-                elif frequency == "120m":
+                elif frequency in {"60m", "120m"}:
                     start_date = end_date - dt.timedelta(days=150)
                 elif frequency == "d":
                     start_date = end_date - dt.timedelta(days=5000)
@@ -136,11 +131,10 @@ class ExchangePolygon(Exchange):
                     start_date = end_date - dt.timedelta(days=7800)
                 elif frequency == "y":
                     start_date = end_date - dt.timedelta(days=15000)
+            elif len(end_date) == 10:
+                start_date = fun.str_to_datetime(start_date, "%Y-%m-%d")
             else:
-                if len(end_date) == 10:
-                    start_date = fun.str_to_datetime(start_date, "%Y-%m-%d")
-                else:
-                    start_date = fun.str_to_datetime(start_date)
+                start_date = fun.str_to_datetime(start_date)
 
             resp = self.client.get_aggs(
                 code.upper(),
@@ -150,30 +144,29 @@ class ExchangePolygon(Exchange):
                 end_date,
                 limit=50000,
             )
-            klines_df = []
-            for r in resp:
-                klines_df.append(
-                    {
-                        "code": code.upper(),
-                        "date": fun.timeint_to_datetime(r.timestamp / 1000).astimezone(
-                            self.tz
-                        ),
-                        "open": r.open,
-                        "close": r.close,
-                        "high": r.high,
-                        "low": r.low,
-                        "volume": r.volume,
-                    }
-                )
+            klines_df = [
+                {
+                    "code": code.upper(),
+                    "date": fun.timeint_to_datetime(r.timestamp / 1000).astimezone(
+                        self.tz
+                    ),
+                    "open": r.open,
+                    "close": r.close,
+                    "high": r.high,
+                    "low": r.low,
+                    "volume": r.volume,
+                }
+                for r in resp
+            ]
             klines_df = pd.DataFrame(klines_df)
             klines_df.sort_values("date", inplace=True)
-            if frequency in ["y", "q", "m", "w", "d"]:
+            if frequency in {"y", "q", "m", "w", "d"}:
                 klines_df["date"] = klines_df["date"].apply(
                     lambda _d: _d.replace(hour=9, minute=30)
                 )
             return klines_df
         except Exception as e:
-            print("polygon.io 获取行情异常 %s Exception ：%s" % (code, str(e)))
+            print(f"polygon.io 获取行情异常 {code} Exception ：{str(e)}")
 
         return None
 
@@ -182,10 +175,7 @@ class ExchangePolygon(Exchange):
         获取股票名称
         """
         all_stocks = self.all_stocks()
-        for s in all_stocks:
-            if s["code"].upper() == code.upper():
-                return s
-        return None
+        return next((s for s in all_stocks if s["code"].upper() == code.upper()), None)
 
     def ticks(self, codes: List[str]) -> Dict[str, Tick]:
         """
@@ -206,9 +196,7 @@ class ExchangePolygon(Exchange):
         返回当前是否是交易时间
         """
         resp = self.client.get_market_status()
-        if resp.market != "closed":
-            return True
-        return False
+        return resp.market != "closed"
 
     def stock_owner_plate(self, code: str):
         raise Exception("交易所不支持")

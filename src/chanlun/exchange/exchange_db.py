@@ -156,33 +156,29 @@ class ExchangeDB(Exchange):
         limit = 5000
         if "limit" in args.keys():
             limit = args["limit"]
-        order = "desc"
-        if "order" in args.keys():
-            order = args["order"]
-
-        if start_date is not None and end_date is not None and "limit" not in args:
-            limit = None
+        order = args["order"] if "order" in args.keys() else "desc"
         if start_date is not None:
+            if end_date is not None and "limit" not in args:
+                limit = None
             start_date = fun.str_to_datetime(start_date, tz=self.tz)
         if end_date is not None:
             end_date = fun.str_to_datetime(end_date, tz=self.tz)
         klines = db.klines_query(
             self.market, code, frequency, start_date, end_date, limit, order
         )
-        kline_pd = []
-        for _k in klines:
-            kline_pd.append(
-                {
-                    "code": _k.code,
-                    "date": _k.dt,
-                    "open": _k.o,
-                    "high": _k.h,
-                    "low": _k.l,
-                    "close": _k.c,
-                    "volume": _k.v,
-                }
-            )
-        if len(kline_pd) == 0:
+        kline_pd = [
+            {
+                "code": _k.code,
+                "date": _k.dt,
+                "open": _k.o,
+                "high": _k.h,
+                "low": _k.l,
+                "close": _k.c,
+                "volume": _k.v,
+            }
+            for _k in klines
+        ]
+        if not kline_pd:
             kline_pd = pd.DataFrame(
                 [], columns=["date", "code", "high", "low", "open", "close", "volume"]
             )

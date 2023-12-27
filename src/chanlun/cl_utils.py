@@ -18,11 +18,11 @@ def web_batch_get_cl_datas(
     :param cl_config: 缠论配置
     :return: 返回计算好的缠论数据对象，List 列表格式，按照传入的 klines.keys 顺序返回 如上调用：[0] 返回 30m 周期数据 [1] 返回 5m 数据
     """
-    cls = []
     fdb = FileCacheDB()
-    for f, k in klines.items():
-        cls.append(fdb.get_web_cl_data(market, code, f, cl_config, k))
-    return cls
+    return [
+        fdb.get_web_cl_data(market, code, f, cl_config, k)
+        for f, k in klines.items()
+    ]
 
 
 def cal_klines_macd_infos(start_k: Kline, end_k: Kline, cd: ICL) -> MACD_INFOS:
@@ -93,11 +93,11 @@ def cal_macd_bis_is_bc(bis: List[BI], cd: ICL) -> Tuple[bool, bool]:
     # 最后一笔不是最高或最低
     direction = bis[-1].type
     if direction == "up":
-        bi_max_val = max([_bi.high for _bi in bis])
+        bi_max_val = max(_bi.high for _bi in bis)
         if bi_max_val != bis[-1].high:
             return False, False
     else:
-        bi_min_val = min([_bi.low for _bi in bis])
+        bi_min_val = min(_bi.low for _bi in bis)
         if bi_min_val != bis[-1].low:
             return False, False
 
@@ -124,9 +124,7 @@ def cal_macd_bis_is_bc(bis: List[BI], cd: ICL) -> Tuple[bool, bool]:
         bis_macd_infos.dea_up_cross_num == 0 or bis_macd_infos.dif_up_cross_num == 0
     ):
         return False, False
-    if direction == "down" and (
-        bis_macd_infos.dif_down_cross_num == 0 or bis_macd_infos.dif_down_cross_num == 0
-    ):
+    if direction == "down" and bis_macd_infos.dif_down_cross_num in [0, 0]:
         return False, False
 
     def get_macd_dump_info(start_fx: FX, end_fx: FX):
@@ -208,7 +206,7 @@ def cal_macd_bis_is_bc(bis: List[BI], cd: ICL) -> Tuple[bool, bool]:
         last_bi_max_dea,
         last_bi_hist_dumps,
     ) = get_macd_dump_info(bis[-1].start, bis[-1].end)
-    last_bi_sum_hist = sum([sum(_hists) for _hists in last_bi_hist_dumps])
+    last_bi_sum_hist = sum(sum(_hists) for _hists in last_bi_hist_dumps)
     # print(
     #     f'最后一笔macd 信息： max_hist {last_bi_max_hist} max_dif {last_bi_max_dif} max_dea {last_bi_max_dea} sum_hist {last_bi_sum_hist}')
     # 根据中枢数量，来获取要比较的部分
@@ -234,7 +232,7 @@ def cal_macd_bis_is_bc(bis: List[BI], cd: ICL) -> Tuple[bool, bool]:
         compare_max_dea,
         compare_hist_dumps,
     ) = get_macd_dump_info(compare_start_fx, compare_end_fx)
-    compare_max_sum_hist = max([sum(_hists) for _hists in compare_hist_dumps])
+    compare_max_sum_hist = max(sum(_hists) for _hists in compare_hist_dumps)
     # print(
     #     f'要比较的macd信息： max_hist {compare_max_hist} max_dif {compare_max_dif} max_dea {compare_max_dea} sum_hist {compare_max_sum_hist}')
 
@@ -401,11 +399,7 @@ def set_cl_chart_config(market: str, code: str, config: Dict[str, object]) -> bo
         db.cache_del(f"cl_config_{market}_{code}")
 
     for new_key, new_val in config.items():
-        if new_key in old_config.keys():
-            old_config[new_key] = new_val
-        else:
-            old_config[new_key] = new_val
-
+        old_config[new_key] = new_val if new_key in old_config.keys() else new_val
     db.cache_set(
         f"cl_config_{market}_{code if config['config_use_type'] == 'custom' else 'common'}",
         old_config,

@@ -184,16 +184,14 @@ class DB(object):
             .replace("@", "_")
             .lower()
         )
-        if market == "hk":
-            table_name = f"{market}_klines_{stock_code[-3:]}"
-        elif market == "a":
+        if market == "a":
             table_name = f"{market}_klines_{stock_code[:7]}"
+        elif market in {"currency", "futures"}:
+            table_name = f"{market}_klines_{stock_code}"
+        elif market == "hk":
+            table_name = f"{market}_klines_{stock_code[-3:]}"
         elif market == "us":
             table_name = f"{market}_klines_{stock_code[0]}"
-        elif market == "currency":
-            table_name = f"{market}_klines_{stock_code}"
-        elif market == "futures":
-            table_name = f"{market}_klines_{stock_code}"
         else:
             raise Exception(f"市场错误：{market}")
 
@@ -335,20 +333,19 @@ class DB(object):
                 session.commit()
                 return True
 
-            insert_klines = []
-            for _, _k in klines.iterrows():
-                insert_klines.append(
-                    {
-                        "code": code,
-                        "dt": fun.str_to_datetime(fun.datetime_to_str(_k["date"])),
-                        "f": frequency,
-                        "o": _k["open"],
-                        "c": _k["close"],
-                        "h": _k["high"],
-                        "l": _k["low"],
-                        "v": _k["volume"],
-                    }
-                )
+            insert_klines = [
+                {
+                    "code": code,
+                    "dt": fun.str_to_datetime(fun.datetime_to_str(_k["date"])),
+                    "f": frequency,
+                    "o": _k["open"],
+                    "c": _k["close"],
+                    "h": _k["high"],
+                    "l": _k["low"],
+                    "v": _k["volume"],
+                }
+                for _, _k in klines.iterrows()
+            ]
             insert_stmt = insert(table).values(insert_klines)
             update_keys = ["o", "c", "h", "l", "v"]
             update_columns = {
@@ -744,9 +741,7 @@ class DB(object):
                 filter += (TableByAlertTask.market == market,)
             if id is not None:
                 filter += (TableByAlertTask.id == id,)
-            if len(filter) > 0:
-                return query.filter(*filter).all()
-            return query.all()
+            return query.filter(*filter).all() if filter else query.all()
         finally:
             session.close()
 

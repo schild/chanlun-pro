@@ -110,9 +110,7 @@ class BackTestKlines(MarketDatas):
             if klines is None:
                 self.loop_datetime_list[_f] = []
                 continue
-            self.loop_datetime_list[_f] = list(klines["date"].to_list())
-            self.loop_datetime_list[_f].sort()
-
+            self.loop_datetime_list[_f] = sorted(klines["date"].to_list())
         self.bar = tqdm(
             total=len(list(self.loop_datetime_list.values())[-1]),
             desc=f"Run {base_code}",
@@ -129,7 +127,7 @@ class BackTestKlines(MarketDatas):
         return True
 
     def next(self, frequency: str = ""):
-        if frequency == "" or frequency is None:
+        if not frequency or frequency is None:
             frequency = self.frequencys[-1]
         if len(self.loop_datetime_list[frequency]) == 0:
             self.clear_all_cache()
@@ -173,7 +171,7 @@ class BackTestKlines(MarketDatas):
                 cl_config_key.encode(encoding="UTF-8")
             ).hexdigest()
 
-            key = "%s_%s_%s" % (code, frequency, cl_config_key)
+            key = f"{code}_{frequency}_{cl_config_key}"
             if key in self.cache_cl_datas.keys():
                 return self.cache_cl_datas[key]
 
@@ -240,7 +238,7 @@ class BackTestKlines(MarketDatas):
         if self.load_data_to_cache:
             # 使用缓存
             for _f in self.frequencys:
-                key = "%s-%s" % (code, _f)
+                key = f"{code}-{_f}"
                 if key not in self.all_klines.keys():
                     # 从数据库获取日期区间的所有行情
                     self.all_klines[key] = self.ex.klines(
@@ -257,7 +255,7 @@ class BackTestKlines(MarketDatas):
                     )  # 按照日期重新进行排序，避免原始数据乱序导致出错
 
             for _f in self.frequencys:
-                key = "%s-%s" % (code, _f)
+                key = f"{code}-{_f}"
                 if self.market in ["currency", "futures", "us"]:  # 后对其的，不能包含当前日期
                     kline = self.all_klines[key][
                         self.all_klines[key]["date"] < self.now_date
@@ -321,7 +319,7 @@ class BackTestKlines(MarketDatas):
                 ).drop_duplicates(subset=["date"], keep="last")
 
         # 检测在数据列中，是否有大于最后一个时间的行
-        for _f, _k_pd in klines.items():
+        for _k_pd in klines.values():
             if len(_k_pd) > 0:
                 _last_dt = _k_pd.iloc[-1]["date"]
                 if len(_k_pd[_k_pd["date"] > _last_dt]) > 0:

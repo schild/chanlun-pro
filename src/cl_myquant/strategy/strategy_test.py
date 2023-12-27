@@ -62,7 +62,7 @@ def xuangu_sz(context: Context):
     print('基本面数据查询用时：', time.time() - s)
 
     fundamentals = sorted(fundamentals, key=lambda f: f['TOTMKTCAP'], reverse=True)
-    symbols = [_f['symbol'] for _f in fundamentals[0:100]]
+    symbols = [_f['symbol'] for _f in fundamentals[:100]]
     print(f'获取市值前100的股票列表：{symbols}')
 
     # symbols = ['SHSE.601857', 'SHSE.601398', 'SHSE.601288', 'SHSE.601988', 'SHSE.600028']
@@ -72,7 +72,7 @@ def xuangu_sz(context: Context):
     pos_symbols = [_p['symbol'] for _p in positions if _p['amount'] > 0]
     print(f'当前持仓股票列表：{pos_symbols}')
 
-    symbols = symbols + pos_symbols
+    symbols += pos_symbols
     symbols = list(set(symbols))
 
     # 进行重新订阅（取消之前的订阅）
@@ -131,7 +131,7 @@ def xuangu_zf(context: Context):
     # 涨跌幅排序
     symbol_20day_rank.sort(key=lambda r: r['change'], reverse=False)
     # 选取排名前 100 选手
-    symbols = [s['symbol'] for s in symbol_20day_rank[0:100]]
+    symbols = [s['symbol'] for s in symbol_20day_rank[:100]]
     print('排行前100股票代码：', symbols)
 
     # 查询当前持仓
@@ -139,7 +139,7 @@ def xuangu_zf(context: Context):
     pos_symbols = [_p['symbol'] for _p in positions if _p['amount'] > 0]
     print(f'当前持仓股票列表：{pos_symbols}')
 
-    symbols = symbols + pos_symbols
+    symbols += pos_symbols
     symbols = list(set(symbols))
 
     # 进行重新订阅（取消之前的订阅）

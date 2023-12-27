@@ -30,9 +30,7 @@ if __name__ == "__main__":
         print("启动成功")
         http_server = WSGIServer(("0.0.0.0", 9900), app)
 
-        if len(sys.argv) >= 2 and sys.argv[1] == "nobrowser":
-            pass
-        else:
+        if len(sys.argv) < 2 or sys.argv[1] != "nobrowser":
             webbrowser.open("http://127.0.0.1:9900")
 
         http_server.serve_forever()

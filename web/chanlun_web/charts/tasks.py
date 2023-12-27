@@ -19,10 +19,7 @@ def query_task_config(task_name) -> Union[None, dict]:
     if now_time % (config["interval_minutes"] * 60) != 0:
         return None
 
-    if len(config["frequencys"]) == 0:
-        return None
-
-    return config
+    return None if len(config["frequencys"]) == 0 else config
 
 
 def task_a_1():

@@ -17,7 +17,7 @@ ex = ExchangePolygon()
 def get_symbols():
     ##################################################-GET LIST OF SYMBOLS-##################################################
     FILE_path = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-    dataFile = FILE_path + '/data/NASDAQ100.csv'
+    dataFile = f'{FILE_path}/data/NASDAQ100.csv'
     # #dataFile = FILE_path+'/data/RUS3000.csv'
 
     symbols = []
@@ -35,7 +35,7 @@ def get_symbols():
     #         if row[0] not in symbols:
     #             symbols.append(row[0])
 
-    dataFile = FILE_path + '/data/SNP500.csv'
+    dataFile = f'{FILE_path}/data/SNP500.csv'
     # dataFile = FILE_path+'/data/RUS3000.csv'
 
     with open(dataFile) as f:
@@ -87,11 +87,15 @@ def stock_is_ok(cl_data: ICL):
     bi = cl_data.get_bis()[-1]
     if xd.mmd_exists(['1buy', '2buy', '3buy', 'l2buy', 'l3buy']) and bi.mmd_exists(
             ['1buy', '2buy', '3buy', 'l2buy', 'l3buy']):
-        return '线段买点 【%s】 笔买点【%s】' % (xd.line_mmds(), bi.line_mmds())
-    for mmd in bi.mmds:
-        if mmd.zs.zs_type == 'xd' and 'buy' in mmd.name:
-            return '笔出现线段买点【%s】' % bi.line_mmds()
-    return None
+        return f'线段买点 【{xd.line_mmds()}】 笔买点【{bi.line_mmds()}】'
+    return next(
+        (
+            f'笔出现线段买点【{bi.line_mmds()}】'
+            for mmd in bi.mmds
+            if mmd.zs.zs_type == 'xd' and 'buy' in mmd.name
+        ),
+        None,
+    )
 
 
 ### 直接放入自选组
@@ -106,11 +110,11 @@ for code in codes:
         msg = stock_is_ok(cd)
         if msg is not None:
             stocks = ex.stock_info(code)
-            print('【%s - %s 】 %s 出现机会：%s' % (stocks['code'], stocks['name'], frequency, msg))
+            print(f"【{stocks['code']} - {stocks['name']} 】 {frequency} 出现机会：{msg}")
             ok_stocks.append(stocks)
             zx.add_stock(zx_group, stocks['code'], stocks['name'])
     except Exception as e:
-        print('Code : %s Run Exception : %s' % (code, e))
+        print(f'Code : {code} Run Exception : {e}')
 
 print('Done')
 print(json.dumps(ok_stocks, ensure_ascii=False))

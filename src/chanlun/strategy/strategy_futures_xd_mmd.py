@@ -145,11 +145,7 @@ class StrategyFuturesXDMMD(Strategy):
             return opts
 
         if 'buy' in mmd and high_xd.type == 'up' and low_bi.mmd_exists(['3sell'], '|'):
-            opts.append(Operation(
-                opt='sell', mmd=mmd, msg=f"高级别线段反向线段，低级别判断趋势完成，并且出现笔三卖"
-            ))
+            opts.append(Operation(opt='sell', mmd=mmd, msg="高级别线段反向线段，低级别判断趋势完成，并且出现笔三卖"))
         if 'sell' in mmd and high_xd.type == 'down' and low_bi.mmd_exists(['3buy'], '|'):
-            opts.append(Operation(
-                opt='sell', mmd=mmd, msg=f"高级别线段反向线段，低级别判断趋势完成，并且出现笔三买"
-            ))
+            opts.append(Operation(opt='sell', mmd=mmd, msg="高级别线段反向线段，低级别判断趋势完成，并且出现笔三买"))
         return opts

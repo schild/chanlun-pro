@@ -21,8 +21,7 @@ def run_backtesting(strategy_class, setting, vt_symbol, interval, start, end, ra
     engine.add_strategy(strategy_class, setting)
     engine.load_data()
     engine.run_backtesting()
-    df = engine.calculate_result()
-    return df
+    return engine.calculate_result()
 
 def show_portafolio(df):
     engine = BacktestingEngine()

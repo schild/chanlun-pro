@@ -205,16 +205,15 @@ class ExchangeTq(Exchange):
             # print(f'tq type {c} codes : {len(codes)}')
         infos = self.get_api().query_symbol_info(codes)
 
-        __all_stocks = []
-        for code in codes:
-            __all_stocks.append(
-                {
-                    "code": code,
-                    "name": infos[infos["instrument_id"] == code].iloc[0][
-                        "instrument_name"
-                    ],
-                }
-            )
+        __all_stocks = [
+            {
+                "code": code,
+                "name": infos[infos["instrument_id"] == code].iloc[0][
+                    "instrument_name"
+                ],
+            }
+            for code in codes
+        ]
         self.g_all_stocks = __all_stocks
         return self.g_all_stocks
 
@@ -350,13 +349,11 @@ class ExchangeTq(Exchange):
         """
         hour = int(time.strftime("%H"))
         minute = int(time.strftime("%M"))
-        if (
+        return (
             hour in {9, 10, 11, 14, 21, 22, 23, 0, 1}
             or (hour == 13 and minute >= 30)
             or (hour == 2 and minute <= 30)
-        ):
-            return True
-        return False
+        )
 
     def balance(self) -> Account:
         """
@@ -380,18 +377,17 @@ class ExchangeTq(Exchange):
 
         positions = api.get_position(symbol=code)
         api.wait_update(time.time() + 2)
-        if isinstance(positions, Position):
-            if positions["pos_long"] != 0 or positions["pos_short"] != 0:
-                return {code: positions}
-            else:
-                return {}
-        else:
+        if not isinstance(positions, Position):
             return {
                 _code: positions[_code]
                 for _code in positions.keys()
                 if positions[_code]["pos_long"] != 0
                 or positions[_code]["pos_short"] != 0
             }
+        if positions["pos_long"] != 0 or positions["pos_short"] != 0:
+            return {code: positions}
+        else:
+            return {}
 
     def order(self, code: str, o_type: str, amount: float, args=None):
         """

@@ -29,23 +29,16 @@ def get_cl_datas(code, frequencys, cl_config):
         _k = _k[['code', 'date', 'open', 'close', 'high', 'low', 'volume']]
         _k['date'] = pd.to_datetime(_k['date'])
         klines[f] = _k
-    cl_datas = cl.web_batch_get_cl_datas(code, klines, cl_config)
-    return cl_datas
+    return cl.web_batch_get_cl_datas(code, klines, cl_config)
 
 
 # 格式化代码与富途的统一
 def reformat_code(code):
     if isinstance(code, list):
-        res = []
-        for c in code:
-            res.append(reformat_code(c))
-        return res
-    symbol = code[0:6]
+        return [reformat_code(c) for c in code]
+    symbol = code[:6]
     exchange = code[-5:]
-    if exchange == '.XSHG':
-        return 'SH.' + symbol
-    else:
-        return 'SZ.' + symbol
+    return 'SH.' + symbol if exchange == '.XSHG' else 'SZ.' + symbol
 
 
 def stock_names(codes):
@@ -61,19 +54,17 @@ def stock_hys(code):
     # 股票的行业信息
     stock_industrys = get_industry(security=[code])
     hy = stock_industrys[code]
-    if 'jq_l2' not in hy:
-        return '--'
-    return hy['jq_l2']['industry_name']
+    return '--' if 'jq_l2' not in hy else hy['jq_l2']['industry_name']
 
 
 # 获取股票概念信息
 def stock_gns(code):
     # 股票的概念信息
     stock_concepts = get_concept(code, date=datetime.date.today())
-    gn = ''
-    for co in stock_concepts[code]['jq_concept']:
-        gn += co['concept_name'] + ' / '
-    return gn[0:-3]
+    gn = ''.join(
+        co['concept_name'] + ' / ' for co in stock_concepts[code]['jq_concept']
+    )
+    return gn[:-3]
 
 
 def stock_jj_bx_share_ok(code):
@@ -84,28 +75,21 @@ def stock_jj_bx_share_ok(code):
     jj_share_ratio = 0
     for lt in lt_top10.iterrows():
         shareholder_class = lt[1]['shareholder_class']
-        share_ratio = lt[1]['share_ratio']
         if shareholder_class == '证券投资基金':
+            share_ratio = lt[1]['share_ratio']
             jj_share_ratio += share_ratio
     if jj_share_ratio >= 2:
         return True
 
     # 查询北向持股大于 3000万
-    if 'XSHG' in code:
-        link_id = 310001
-    else:
-        link_id = 310002
+    link_id = 310001 if 'XSHG' in code else 310002
     bx = finance.run_query(query(finance.STK_HK_HOLD_INFO).filter(finance.STK_HK_HOLD_INFO.link_id == link_id,
                                                                   finance.STK_HK_HOLD_INFO.code == code).order_by(
         finance.STK_HK_HOLD_INFO.day.desc()).limit(1))
     price = get_ticks(code, end_dt=datetime.datetime.now(), fields=['current'], count=1)
     price = price[0][0]
-    share_balance = 0
-    if len(bx) == 1:
-        share_balance = bx.iloc[0]['share_number'] * price
-    if share_balance >= 30000000:
-        return True
-    return False
+    share_balance = bx.iloc[0]['share_number'] * price if len(bx) == 1 else 0
+    return share_balance >= 30000000
 
 
 def get_mla_buy_point(cd_w: cl.CL, cd_d: cl.CL, cd_30m: cl.CL):
@@ -123,10 +107,7 @@ def get_mla_buy_point(cd_w: cl.CL, cd_d: cl.CL, cd_30m: cl.CL):
         return None
 
     if low_qs['zs_num'] >= 1 or low_qs['qs_done'] or bi_30m.bc_exists(['pz', 'qs']):
-        return '%s 级别 %s 买点，%s 级别趋势（中枢 %s 完成 %s 趋势背驰 %s 盘整背驰 %s）' % (
-            cd_d.frequency, bi_d.line_mmds(), cd_30m.frequency, low_qs['zs_num'], low_qs['qs_done'],
-            bi_30m.bc_exists(['qs']),
-            bi_30m.bc_exists(['pz']))
+        return f"{cd_d.frequency} 级别 {bi_d.line_mmds()} 买点，{cd_30m.frequency} 级别趋势（中枢 {low_qs['zs_num']} 完成 {low_qs['qs_done']} 趋势背驰 {bi_30m.bc_exists(['qs'])} 盘整背驰 {bi_30m.bc_exists(['pz'])}）"
 
     return None
 
@@ -138,15 +119,17 @@ def get_week_day_buy(cd_w: cl.CL, cd_d: cl.CL):
     if len(cd_w.bis) == 0 or len(cd_d.bis) == 0:
         return None
 
+    if cd_w.idx['macd']['dif'][-1] < 0 or cd_w.idx['macd']['dea'][-1] < 0:
+        return None
     bi_w = cd_w.bis[-1]
     bi_d = cd_d.bis[-1]
 
     check_buys = ['1buy', '2buy', 'l2buy', '3buy', 'l3buy']
-    if cd_w.idx['macd']['dif'][-1] < 0 or cd_w.idx['macd']['dea'][-1] < 0:
-        return None
-    if bi_w.mmd_exists(check_buys) and bi_d.mmd_exists(check_buys):
-        return '%s 级别 %s 买点，%s 级别 %s 买点' % (cd_w.frequency, bi_w.line_mmds(), cd_d.frequency, bi_d.line_mmds())
-    return None
+    return (
+        f'{cd_w.frequency} 级别 {bi_w.line_mmds()} 买点，{cd_d.frequency} 级别 {bi_d.line_mmds()} 买点'
+        if bi_w.mmd_exists(check_buys) and bi_d.mmd_exists(check_buys)
+        else None
+    )
 
 
 def get_buy_point(cd: cl.CL):
@@ -158,7 +141,7 @@ def get_buy_point(cd: cl.CL):
     bi = cd.bis[-1]
 
     if bi.mmd_exists(['1buy', '2buy', 'l2buy', '3buy', 'l3buy']):
-        return '出现买点 %s' % bi.line_mmds()
+        return f'出现买点 {bi.line_mmds()}'
     return None
 
 
@@ -172,5 +155,5 @@ def get_xd_buy_and_bc(cd: cl.CL):
     xd = cd.xds[-1]
 
     if len(xd.line_mmds()) > 0 and (xd.bc_exists(['xd', 'pz', 'qs']) or bi.bc_exists(['qs', 'pz'])):
-        return ' %s级别 出现线段买点（%s / %s）并且笔背驰（%s）' % (cd.frequency, xd.line_mmds(), xd.line_bcs(), bi.line_bcs())
+        return f' {cd.frequency}级别 出现线段买点（{xd.line_mmds()} / {xd.line_bcs()}）并且笔背驰（{bi.line_bcs()}）'
     return None

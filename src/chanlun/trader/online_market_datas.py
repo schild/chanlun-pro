@@ -78,5 +78,6 @@ class OnlineMarketDatas(MarketDatas):
 
         klines = self.klines(code, frequency)
 
-        cd = self.fdb.get_web_cl_data(self.market, code, frequency, cl_config, klines)
-        return cd
+        return self.fdb.get_web_cl_data(
+            self.market, code, frequency, cl_config, klines
+        )

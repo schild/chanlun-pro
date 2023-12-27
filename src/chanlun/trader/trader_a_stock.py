@@ -41,7 +41,7 @@ class TraderAStock(BackTestTrader):
         balance = 50000
         price = tick[code].last
         amount = balance / price
-        amount = amount - amount % 100
+        amount -= amount % 100
 
         msg = f"股票买入 {code}-{stock['name']} 价格 {price} 数量 {amount} 原因 {opt.msg}"
         utils.send_fs_msg("a", "沪深交易提醒", [msg])

@@ -48,49 +48,37 @@ class StrategyZSTupo(Strategy):
 
         # 统计中枢震荡区间的用时（用lv1[日线] 的K线数量，来获取交易日时间）
         zd_days = len([_k for _k in cd_lv1.get_klines() if xd_zs_lv0.start.k.date <= _k.date])
-        if (self.zs_zd_days[0] <= zd_days <= self.zs_zd_days[1]) is False:
+        if not self.zs_zd_days[0] <= zd_days <= self.zs_zd_days[1]:
             return opts
 
         # 计算中枢之前的趋势涨跌幅
         into_zs_xd_lv0 = xd_zs_lv0.lines[0]
+        start_up_xd_lv0 = into_zs_xd_lv0
+        if start_up_xd_lv0.index >= 2 and cd_lv0.get_xds()[start_up_xd_lv0.index - 2].low < start_up_xd_lv0.low:
+            start_up_xd_lv0 = cd_lv0.get_xds()[start_up_xd_lv0.index - 2]
         if into_zs_xd_lv0.type == 'up':
             # 进入线段是向上，找上涨这段趋势的涨幅（如果之前同向的线段笔当前的低，取前一段）
             opt_direction = 'buy'
-            start_up_xd_lv0 = into_zs_xd_lv0
-            if start_up_xd_lv0.index >= 2 and cd_lv0.get_xds()[start_up_xd_lv0.index - 2].low < start_up_xd_lv0.low:
-                start_up_xd_lv0 = cd_lv0.get_xds()[start_up_xd_lv0.index - 2]
             zf_rate = abs((into_zs_xd_lv0.high - start_up_xd_lv0.low) / start_up_xd_lv0.low * 100)
         else:
             # 进入线段是向下，找下跌这段趋势的跌幅（如果之前同向的线段笔当前的高，取前一段）
             opt_direction = 'sell'
-            start_up_xd_lv0 = into_zs_xd_lv0
-            if start_up_xd_lv0.index >= 2 and cd_lv0.get_xds()[start_up_xd_lv0.index - 2].low < start_up_xd_lv0.low:
-                start_up_xd_lv0 = cd_lv0.get_xds()[start_up_xd_lv0.index - 2]
             zf_rate = abs((into_zs_xd_lv0.low - start_up_xd_lv0.high) / start_up_xd_lv0.high * 100)
 
         # 判断振幅是否在区间内
-        if (self.pre_zf_rate[0] <= zf_rate <= self.pre_zf_rate[1]) is False:
+        if not self.pre_zf_rate[0] <= zf_rate <= self.pre_zf_rate[1]:
             return opts
 
+        # EMA 要多头排列
+        klines_lv1 = [_k for _k in cd_lv1.get_klines() if _k.date <= into_zs_xd_lv0.end.k.date]
+        kline_closes = np.array([_k.c for _k in klines_lv1][-(max(self.ema_params) * 2):])
+        ema_idx = [ta.EMA(kline_closes, _p) for _p in self.ema_params]
         # 计算  EMA 是否 多头或空头排列
         if opt_direction == 'buy':
-            # EMA 要多头排列
-            klines_lv1 = [_k for _k in cd_lv1.get_klines() if _k.date <= into_zs_xd_lv0.end.k.date]
-            kline_closes = np.array([_k.c for _k in klines_lv1][-(max(self.ema_params) * 2):])
-            ema_idx = []
-            for _p in self.ema_params:
-                ema_idx.append(ta.EMA(kline_closes, _p))
-            if (ema_idx[0][-1] > ema_idx[1][-1] > ema_idx[2][-1]) is False:
+            if not ema_idx[0][-1] > ema_idx[1][-1] > ema_idx[2][-1]:
                 return opts
-        else:
-            # EMA 要空头排列
-            klines_lv1 = [_k for _k in cd_lv1.get_klines() if _k.date <= into_zs_xd_lv0.end.k.date]
-            kline_closes = np.array([_k.c for _k in klines_lv1][-(max(self.ema_params) * 2):])
-            ema_idx = []
-            for _p in self.ema_params:
-                ema_idx.append(ta.EMA(kline_closes, _p))
-            if (ema_idx[0][-1] < ema_idx[1][-1] < ema_idx[2][-1]) is False:
-                return opts
+        elif not ema_idx[0][-1] < ema_idx[1][-1] < ema_idx[2][-1]:
+            return opts
 
         kline_lv1 = cd_lv1.get_klines()[-1]
         kline_lv0 = cd_lv0.get_klines()[-1]
@@ -113,8 +101,8 @@ class StrategyZSTupo(Strategy):
         # 操作方向是买入，当lv1（日线）的收盘价大于 中枢高点，并且价格大于 ema 10 均线，并且lv1 K线是阳线，买入
         # kline_p1_lv1.c > kline_p1_lv1.o and kline_p1_lv1.c > xd_zs_lv0.zg and \
         if opt_direction == 'buy' and kline_lv1.c > ema_idx[0][-1] and \
-                (kline_p1_lv1.l < xd_zs_lv0.zg or kline_p2_lv1.l < xd_zs_lv0.zg) and \
-                xd_zs_lv0.zg < kline_lv1.c and kline_lv1.c > kline_lv1.o:
+                    (kline_p1_lv1.l < xd_zs_lv0.zg or kline_p2_lv1.l < xd_zs_lv0.zg) and \
+                    xd_zs_lv0.zg < kline_lv1.c and kline_lv1.c > kline_lv1.o:
             loss_price = kline_lv1.l
             open_pos_rate = self.get_open_pos_rate(self.max_loss_rate, kline_lv1.c, loss_price)
             info['open_pos_rate'] = open_pos_rate  # 记录开仓占比
@@ -125,8 +113,8 @@ class StrategyZSTupo(Strategy):
         # 操作方向是卖出，当lv1（日线）的收盘价 小于 中枢低点，价格小于 ema 10 均线， 并且lv1 K线是阴线，卖出
         # kline_p1_lv1.c < kline_p1_lv1.o and kline_p1_lv1.c < xd_zs_lv0.zd and \
         if opt_direction == 'sell' and kline_lv1.c < ema_idx[0][-1] and \
-                (kline_p1_lv1.h > xd_zs_lv0.zd or kline_p2_lv1.h > xd_zs_lv0.zd) and \
-                xd_zs_lv0.zd > kline_lv1.c and kline_lv1.c < kline_lv1.o:
+                    (kline_p1_lv1.h > xd_zs_lv0.zd or kline_p2_lv1.h > xd_zs_lv0.zd) and \
+                    xd_zs_lv0.zd > kline_lv1.c and kline_lv1.c < kline_lv1.o:
             loss_price = kline_p1_lv1.h
             open_pos_rate = self.get_open_pos_rate(self.max_loss_rate, kline_lv1.c, loss_price)
             info['open_pos_rate'] = open_pos_rate  # 记录开仓占比

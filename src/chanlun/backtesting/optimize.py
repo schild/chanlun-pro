@@ -26,9 +26,4 @@ class OptimizationSetting:
         values = self.cl_config_params.values()
         products = list(product(*values))
 
-        settings = []
-        for p in products:
-            setting = dict(zip(keys, p))
-            settings.append(setting)
-
-        return settings
+        return [dict(zip(keys, p)) for p in products]

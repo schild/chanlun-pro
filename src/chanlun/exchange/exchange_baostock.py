@@ -61,17 +61,13 @@ class ExchangeBaostock(Exchange):
         周一至周五，09:30-11:30 13:00-15:00
         """
         now_dt = datetime.datetime.now()
-        if now_dt.weekday() in [5, 6]:  # 周六日不交易
+        if now_dt.weekday() in {5, 6}:  # 周六日不交易
             return False
         hour = now_dt.hour
         minute = now_dt.minute
         if hour == 9 and minute >= 30:
             return True
-        if hour in [10, 13, 14]:
-            return True
-        if hour == 11 and minute < 30:
-            return True
-        return False
+        return True if hour in {10, 13, 14} else hour == 11 and minute < 30
 
     def klines(
         self,
@@ -115,7 +111,7 @@ class ExchangeBaostock(Exchange):
             "5m": 20,
         }
         if frequency not in frequency_map:
-            raise Exception("不支持的周期 : " + frequency)
+            raise Exception(f"不支持的周期 : {frequency}")
 
         #### 获取沪深A股历史K线数据 ####
         # 详细指标参数，参见“历史行情指标参数”章节；“分钟线”参数与“日线”参数不同。
@@ -139,8 +135,8 @@ class ExchangeBaostock(Exchange):
             bs.login()
             return self.klines(code, frequency, start_date, end_date, args)
         if rs.error_code != "0":
-            print("query_history_k_data_plus respond error_code:" + rs.error_code)
-            print("query_history_k_data_plus respond  error_msg:" + rs.error_msg)
+            print(f"query_history_k_data_plus respond error_code:{rs.error_code}")
+            print(f"query_history_k_data_plus respond  error_msg:{rs.error_msg}")
             return None
 
         data_list = []
@@ -157,7 +153,7 @@ class ExchangeBaostock(Exchange):
         kline["volume"] = pd.to_numeric(kline["volume"])
         kline.fillna(0, inplace=True)
 
-        if frequency in ["60m", "30m", "15m", "5m", "1m"]:
+        if frequency in {"60m", "30m", "15m", "5m", "1m"}:
             dates = kline["date"].unique()
             new_kline = pd.DataFrame()
             for d in dates:

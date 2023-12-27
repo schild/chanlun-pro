@@ -45,14 +45,13 @@ class StrategyZsdXdBi1MMD(Strategy):
 
         # 设置止损价格
         price = data.get_klines()[-1].c
-        if self._max_loss_rate is not None:
-            if bi.type == 'up':
-                loss_price = min(bi.high, price * (1 + self._max_loss_rate / 100))
-            else:
-                loss_price = max(bi.low, price * (1 - self._max_loss_rate / 100))
-        else:
+        if self._max_loss_rate is None:
             loss_price = bi.low if bi.type == 'down' else bi.high
 
+        elif bi.type == 'up':
+            loss_price = min(bi.high, price * (1 + self._max_loss_rate / 100))
+        else:
+            loss_price = max(bi.low, price * (1 - self._max_loss_rate / 100))
         # 买卖点开仓
         for mmd in zsd.line_mmds():
             # 线段 or 笔 出现一类买卖点

@@ -48,7 +48,7 @@ class TdxBKGN:
                 for _d in data.iterrows():
                     code = _d[1]["code"]
                     name = _d[1]["name"]
-                    if code[0:2] != "88":
+                    if code[:2] != "88":
                         continue
                     code = f"SH.{str(code)}"
                     self.all_stocks.append({"code": code, "name": name})
@@ -59,10 +59,8 @@ class TdxBKGN:
     @staticmethod
     def to_tdx_code(_c: str):
         if _c[0] == "6":
-            return "SH." + _c
-        if _c[0] in ["0", "3"]:
-            return "SZ." + _c
-        return None
+            return f"SH.{_c}"
+        return f"SZ.{_c}" if _c[0] in ["0", "3"] else None
 
     def get_all_bkgn(self):
         """
@@ -96,17 +94,16 @@ class TdxBKGN:
         hy_info: Dict[str, List] = {}
         with open(tdx_hy_file, "r", encoding="gbk") as fp:
             hy_type_key = ""
-            for l_txt in fp.readlines():
+            for l_txt in fp:
                 l_txt = l_txt.strip()
                 if l_txt.startswith("#"):
                     hy_type_key = l_txt.split("#")[1]
                     if hy_type_key not in hy_info.keys():
                         hy_info[hy_type_key] = []
-                else:
-                    if "|" in l_txt:
-                        hy_info[hy_type_key].append(
-                            {"_code": l_txt.split("|")[0], "name": l_txt.split("|")[1]}
-                        )
+                elif "|" in l_txt:
+                    hy_info[hy_type_key].append(
+                        {"_code": l_txt.split("|")[0], "name": l_txt.split("|")[1]}
+                    )
 
         # 获取所有通达信行业信息
         tdx_hy = []
@@ -115,7 +112,7 @@ class TdxBKGN:
             hy_stocks = [
                 _s
                 for _s in self.all_stocks
-                if _s["name"] == _info["name"] and _s["code"][0:5] == "SH.88"
+                if _s["name"] == _info["name"] and _s["code"][:5] == "SH.88"
             ]
             if len(hy_stocks) == 1:
                 _info["code"] = hy_stocks[0]["code"] if len(hy_stocks) == 1 else "--"
@@ -124,7 +121,7 @@ class TdxBKGN:
 
         # 读取股票的与行业的关系
         with open(tdx_stock_file, "r") as fp:
-            for l_txt in fp.readlines():
+            for l_txt in fp:
                 l_txt = l_txt.strip()
                 if "|" in l_txt:
                     _info = l_txt.split("|")
@@ -135,13 +132,7 @@ class TdxBKGN:
                         if _info[2] == _hy["_code"]:
                             _hy["in_codes"].append(_tdx_code)
 
-        tdx_new_hy = []
-
-        for _hy in tdx_hy:
-            if len(_hy["in_codes"]) == 0:
-                continue
-            tdx_new_hy.append(_hy)
-
+        tdx_new_hy = [_hy for _hy in tdx_hy if len(_hy["in_codes"]) != 0]
         self.cache_hy = tdx_new_hy
 
         return tdx_new_hy
@@ -182,7 +173,7 @@ class TdxBKGN:
         pos = 384
         (num,) = struct.unpack("<H", data[pos : pos + 2])
         pos += 2
-        for i in range(num):
+        for _ in range(num):
             gn_name_raw = data[pos : pos + 9]
             pos += 9
             gn_name = gn_name_raw.decode("gbk", "ignore").rstrip("\x00")
@@ -194,8 +185,10 @@ class TdxBKGN:
                 _s
                 for _s in self.all_stocks
                 if _s["name"]
-                == (gn_name if gn_name not in gn_name_map else gn_name_map[gn_name])
-                and _s["code"][0:5] == "SH.88"
+                == (
+                    gn_name if gn_name not in gn_name_map else gn_name_map[gn_name]
+                )
+                and _s["code"][:5] == "SH.88"
             ]
             # if len(gn_code) == 0:
             #     print(gn_name, '没有找到行情代码')
@@ -206,7 +199,7 @@ class TdxBKGN:
                 "code": gn_code[0]["code"] if len(gn_code) == 1 else "--",
                 "in_codes": [],
             }
-            for code_index in range(stock_count):
+            for _ in range(stock_count):
                 one_code = data[pos : pos + 7].decode("utf-8", "ignore").rstrip("\x00")
                 pos += 7
                 tdx_code = self.to_tdx_code(one_code)
@@ -226,15 +219,16 @@ class TdxBKGN:
         if self.tdx_path is None:
             return {"HY": [], "GN": []}
 
-        hys = []
-        gns = []
-        for _hy in self.get_all_hy():
-            if code in _hy["in_codes"]:
-                hys.append({"code": _hy["code"], "name": _hy["name"]})
-        for _gn in self.get_all_gn():
-            if code in _gn["in_codes"]:
-                gns.append({"code": _gn["code"], "name": _gn["name"]})
-
+        hys = [
+            {"code": _hy["code"], "name": _hy["name"]}
+            for _hy in self.get_all_hy()
+            if code in _hy["in_codes"]
+        ]
+        gns = [
+            {"code": _gn["code"], "name": _gn["name"]}
+            for _gn in self.get_all_gn()
+            if code in _gn["in_codes"]
+        ]
         return {"HY": hys, "GN": gns}
 
     def get_bk_codes(self, bk: str):

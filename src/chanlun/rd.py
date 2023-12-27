@@ -76,5 +76,3 @@ def task_config_save(task_name, task_config: dict):
     return Robj().set(f"task_{task_name}", task_config)
 
 
-if __name__ == "__main__":
-    pass

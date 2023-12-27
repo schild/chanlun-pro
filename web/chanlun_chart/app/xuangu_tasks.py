@@ -89,9 +89,9 @@ def process_xuangu_task(
             run_codes = [
                 _c
                 for _c in run_codes
-                if _c[0:5] in ["SZ.00", "SZ.30", "SH.60", "SH.68"]
+                if _c[:5] in ["SZ.00", "SZ.30", "SH.60", "SH.68"]
             ]
-        if market == "futures":
+        elif market == "futures":
             run_codes = [_c for _c in run_codes if _c[-2:] == "L8"]
 
         cl_config = query_cl_chart_config(market, "----")
@@ -100,9 +100,9 @@ def process_xuangu_task(
         for _c in tqdm(run_codes, desc="选股进度"):
             try:
                 klines = {_f: ex.klines(_c, _f) for _f in freqs if _f != ""}
-                if len(klines) == 0:
+                if not klines:
                     continue
-                if min([len(_k) for _k in klines.values()]) == 0:
+                if min(len(_k) for _k in klines.values()) == 0:
                     continue
                 cds = web_batch_get_cl_datas(market, _c, klines, cl_config)
 

@@ -14,7 +14,7 @@ mmd_types = {
 
 
 def get_opt_types(opt_type: list = []):
-    if len(opt_type) == 0:
+    if not opt_type:
         opt_type = ["long"]
     opt_direction = list(
         itertools.chain.from_iterable([direction_types[x] for x in opt_type])
@@ -217,23 +217,20 @@ def xg_multiple_low_level_12mmd(cl_datas: List[ICL], opt_type: list = []):
 
     # 获取高级别底分型后的低级别笔
     start_datetime = high_bi.end.klines[0].date
-    low_bis: List[BI] = []
-    for _bi in low_data_1.get_bis():
-        if _bi.end.k.date > start_datetime:
-            low_bis.append(_bi)
+    low_bis: List[BI] = [
+        _bi for _bi in low_data_1.get_bis() if _bi.end.k.date > start_datetime
+    ]
     for _bi in low_data_2.get_bis():
         if _bi.end.k.date > start_datetime:
             low_bis.append(_bi)
 
-    # 遍历低级别的笔，找是否有一二类买点
-    exists_12_mmd = False
-    for _bi in low_bis:
-        if _bi.mmd_exists(
-            ["1buy", "2buy"] if high_bi.type == "down" else ["1sell", "2sell"], "|"
-        ):
-            exists_12_mmd = True
-            break
-
+    exists_12_mmd = any(
+        _bi.mmd_exists(
+            ["1buy", "2buy"] if high_bi.type == "down" else ["1sell", "2sell"],
+            "|",
+        )
+        for _bi in low_bis
+    )
     if exists_12_mmd:
         return {
             "code": high_data.get_code(),
@@ -333,7 +330,7 @@ def xg_single_bcmmd_next_di_fx_verif(cl_datas: List[ICL]):
                     for _fx in cd.get_fxs()
                     if (_fx.type == "di" and _fx.index > bi.end.index and _fx.done)
                 ]
-                if len(end_di_fx) == 0:
+                if not end_di_fx:
                     return None
                 end_fx = end_di_fx[0]
                 if (
@@ -405,11 +402,14 @@ def xg_single_pre_bi_tk_and_3buy(cl_datas: List[ICL]):
     up_qk_num, _ = bi_qk_num(cd, pre_bi)
     if up_qk_num <= 0:
         return None
-    # 出现三类买点，并且前笔的高点大于等于中枢的 gg 点
-    for mmd in now_bi.mmds:
-        if mmd.name == "3buy" and pre_bi.high >= mmd.zs.gg:
-            return {"code": cd.get_code(), "msg": f"三买前一笔出现 {up_qk_num} 缺口，可重点关注"}
-    return None
+    return next(
+        (
+            {"code": cd.get_code(), "msg": f"三买前一笔出现 {up_qk_num} 缺口，可重点关注"}
+            for mmd in now_bi.mmds
+            if mmd.name == "3buy" and pre_bi.high >= mmd.zs.gg
+        ),
+        None,
+    )
 
 
 def xg_single_find_3buy_by_1buy(cl_datas: List[ICL], opt_type: list = []):
@@ -445,7 +445,7 @@ def xg_single_find_3buy_by_1buy(cl_datas: List[ICL], opt_type: list = []):
                 if _l.mmd_exists(
                     ["1buy"] if bi.type == "down" else ["1sell"], _zs_type
                 ):
-                    return {"code": cd.get_code(), "msg": f"出现三买，并且之前有出现一买"}
+                    return {"code": cd.get_code(), "msg": "出现三买，并且之前有出现一买"}
     return None
 
 

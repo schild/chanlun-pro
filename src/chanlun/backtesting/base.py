@@ -168,8 +168,7 @@ class Strategy(ABC):
             prices = np.array([k.c for k in cd.get_klines()])
         else:
             prices = np.array([k.c for k in cd.get_klines()[-(period + 120):]])
-        ma = talib.MA(prices, timeperiod=period)
-        return ma
+        return talib.MA(prices, timeperiod=period)
 
     @staticmethod
     def idx_ema(cd: ICL, period=5, is_all_prices=False):
@@ -180,8 +179,7 @@ class Strategy(ABC):
             prices = np.array([k.c for k in cd.get_klines()])
         else:
             prices = np.array([k.c for k in cd.get_klines()[-(period + 120):]])
-        ma = talib.EMA(prices, timeperiod=period)
-        return ma
+        return talib.EMA(prices, timeperiod=period)
 
     @staticmethod
     def idx_boll(cd: ICL, period=20):
@@ -201,8 +199,7 @@ class Strategy(ABC):
         # 1. RSI值于0 - 100 之间呈常态分配，当6日RSI值为80‰以上时，股市呈超买现象，若出现M头，市场风险较大；当6日RSI值在20‰以下时，股市呈超卖现象，若出现W头，市场机会增大。
         # 2. RSI一般选用6日、12日、24日作为参考基期，基期越长越有趋势性(慢速RSI)，基期越短越有敏感性(快速RSI)。当快速RSI由下往上突破慢速RSI时，机会增大；当快速RSI由上而下跌破慢速RSI时，风险增大。
         prices = np.array([k.c for k in cd.get_klines()[-(period + 120):]])
-        rsi = talib.RSI(prices, timeperiod=period)
-        return rsi
+        return talib.RSI(prices, timeperiod=period)
 
     @staticmethod
     def idx_atr(cd: ICL, period=14, end_datetime=None):
@@ -227,8 +224,7 @@ class Strategy(ABC):
         low_prices = np.array(
             [k.l for k in cd.get_klines()[-(period + 500):] if end_datetime is None or k.date <= end_datetime]
         )
-        atr = talib.ATR(high_prices, low_prices, close_prices, timeperiod=period)
-        return atr
+        return talib.ATR(high_prices, low_prices, close_prices, timeperiod=period)
 
     @staticmethod
     def idx_cci(cd: ICL, period=14):
@@ -240,8 +236,7 @@ class Strategy(ABC):
         close_prices = np.array([k.c for k in cd.get_klines()[-(period + 120):]])
         high_prices = np.array([k.h for k in cd.get_klines()[-(period + 120):]])
         low_prices = np.array([k.l for k in cd.get_klines()[-(period + 120):]])
-        cci = talib.CCI(high_prices, low_prices, close_prices, timeperiod=period)
-        return cci
+        return talib.CCI(high_prices, low_prices, close_prices, timeperiod=period)
 
     @staticmethod
     def idx_kdj(cd: ICL, period=9, M1=3, M2=3, end_datetime=None):
@@ -317,10 +312,7 @@ class Strategy(ABC):
         atr_vals = self.idx_atr_by_sma(close_prices, high_prices, low_prices, atr_period)
         high_stop_loss_price = high_prices[-1] + atr_vals[-1] * atr_m
         low_stop_loss_price = low_prices[-1] - atr_vals[-1] * atr_m
-        if mmd_type == 'buy':
-            return low_stop_loss_price
-        else:
-            return high_stop_loss_price
+        return low_stop_loss_price if mmd_type == 'buy' else high_stop_loss_price
 
     def check_atr_stop_loss(self, cd: ICL, pos: POSITION, atr_period: int = 14, atr_m: float = 1.5):
         """
@@ -335,11 +327,17 @@ class Strategy(ABC):
         high_stop_loss_price = high_prices[-2] + atr_vals[-2] * atr_m
         low_stop_loss_price = low_prices[-2] - atr_vals[-2] * atr_m
         if 'buy' in pos.mmd and price <= low_stop_loss_price:
-            return Operation(opt='sell', mmd=pos.mmd,
-                             msg='%s ATR止损 （止损价格 %s 当前价格 %s）' % (pos.mmd, low_stop_loss_price, price))
+            return Operation(
+                opt='sell',
+                mmd=pos.mmd,
+                msg=f'{pos.mmd} ATR止损 （止损价格 {low_stop_loss_price} 当前价格 {price}）',
+            )
         elif 'sell' in pos.mmd and price >= high_stop_loss_price:
-            return Operation(opt='sell', mmd=pos.mmd,
-                             msg='%s ATR止损 （止损价格 %s 当前价格 %s）' % (pos.mmd, high_stop_loss_price, price))
+            return Operation(
+                opt='sell',
+                mmd=pos.mmd,
+                msg=f'{pos.mmd} ATR止损 （止损价格 {high_stop_loss_price} 当前价格 {price}）',
+            )
         return None
 
     @staticmethod
@@ -351,14 +349,18 @@ class Strategy(ABC):
         if pos.loss_price is None or pos.loss_price == 0:
             return None
 
-        if 'buy' in mmd:
-            if price < pos.loss_price:
-                return Operation(opt='sell', mmd=mmd,
-                                 msg='%s 止损 （止损价格 %s 当前价格 %s）' % (mmd, pos.loss_price, price))
-        elif 'sell' in mmd:
-            if price > pos.loss_price:
-                return Operation(opt='sell', mmd=mmd,
-                                 msg='%s 止损 （止损价格 %s 当前价格 %s）' % (mmd, pos.loss_price, price))
+        if (
+            'buy' in mmd
+            and price < pos.loss_price
+            or 'buy' not in mmd
+            and 'sell' in mmd
+            and price > pos.loss_price
+        ):
+            return Operation(
+                opt='sell',
+                mmd=mmd,
+                msg=f'{mmd} 止损 （止损价格 {pos.loss_price} 当前价格 {price}）',
+            )
         return None
 
     @staticmethod
@@ -383,10 +385,10 @@ class Strategy(ABC):
         """
         if max_back_rate is not None:
             profit_rate = (pos.price - price) / pos.price * 100 \
-                if 'sell' in mmd else \
-                (price - pos.price) / pos.price * 100
+                    if 'sell' in mmd else \
+                    (price - pos.price) / pos.price * 100
             if profit_rate > 0 and pos.max_profit_rate - profit_rate >= max_back_rate:
-                return Operation(opt='sell', mmd=mmd, msg='%s 回调止损' % mmd)
+                return Operation(opt='sell', mmd=mmd, msg=f'{mmd} 回调止损')
         return None
 
     @staticmethod
@@ -411,49 +413,35 @@ class Strategy(ABC):
         balance = 100000  # 信号模式下，回测每次开仓的金额
         open_balance = (max_loss_rate / 100 * balance) / abs(open_price - loss_price) * open_price
         pos_rate = round(open_balance / balance, 2)
-        if pos_rate > 1:
-            pos_rate = 1
-        return pos_rate
+        return min(pos_rate, 1)
 
     @staticmethod
     def last_done_bi(bis: List[BI]):
         """
         获取最后一个 完成笔
         """
-        for bi in bis[::-1]:
-            if bi.is_done():
-                return bi
-        return None
+        return next((bi for bi in bis[::-1] if bi.is_done()), None)
 
     @staticmethod
     def last_bi(cd: ICL, _type: str = 'up'):
         """
         获取最后一个给定类型的笔
         """
-        if cd.get_bis()[-1].type == _type:
-            return cd.get_bis()[-1]
-        else:
-            return cd.get_bis()[-2]
+        return cd.get_bis()[-1] if cd.get_bis()[-1].type == _type else cd.get_bis()[-2]
 
     @staticmethod
     def last_xd(cd: ICL, _type: str = 'up'):
         """
         获取最后一个给定类型的线段
         """
-        if cd.get_xds()[-1].type == _type:
-            return cd.get_xds()[-1]
-        else:
-            return cd.get_xds()[-2]
+        return cd.get_xds()[-1] if cd.get_xds()[-1].type == _type else cd.get_xds()[-2]
 
     @staticmethod
     def last_done_xd(xds: List[XD]):
         """
         获取最后一个 完成线段
         """
-        for xd in xds[::-1]:
-            if xd.is_done():
-                return xd
-        return None
+        return next((xd for xd in xds[::-1] if xd.is_done()), None)
 
     @staticmethod
     def bi_td(bi: BI, cd: ICL):
@@ -487,15 +475,17 @@ class Strategy(ABC):
         mean_klines = cd.get_klines()
         # 如果笔向上，k线要变绿，进行转折
         if bi.type == 'up' and mean_klines[-2].o > mean_klines[-2].c and \
-                mean_klines[-1].h < bi.end.val and mean_klines[-1].c < mean_klines[-1].o and \
-                mean_klines[-1].c < mean_klines[-2].o:
+                    mean_klines[-1].h < bi.end.val and mean_klines[-1].c < mean_klines[-1].o and \
+                    mean_klines[-1].c < mean_klines[-2].o:
             return True
         # 如果笔向下，k线要变红，进行转折
-        if bi.type == 'down' and mean_klines[-2].o < mean_klines[-2].c and \
-                mean_klines[-1].l > bi.end.val and mean_klines[-1].c > mean_klines[-1].o and \
-                mean_klines[-1].c > mean_klines[-2].o:
-            return True
-        return False
+        return (
+            bi.type == 'down'
+            and mean_klines[-2].o < mean_klines[-2].c
+            and mean_klines[-1].l > bi.end.val
+            and mean_klines[-1].c > mean_klines[-1].o
+            and mean_klines[-1].c > mean_klines[-2].o
+        )
 
     @staticmethod
     def bi_qiang_td(bi: BI, cd: ICL):
@@ -530,7 +520,7 @@ class Strategy(ABC):
         price = last_k.c
         fxs = cd.get_fxs()
         next_fxs = [_fx for _fx in fxs if (_fx.index > bi.end.index and _fx.type == bi.end.type)]
-        if len(next_fxs) == 0:
+        if not next_fxs:
             return False
         next_fx = next_fxs[0]
         # # 当前bar与验证分型第三个bar相隔大于2个bar，直接返回 False
@@ -572,7 +562,7 @@ class Strategy(ABC):
         提供一系列数据点，给出其趋势角度，以此判断其方向
         用于判断类似 macd 背驰，macd柱子创新低而黄白线则新高
         """
-        if len(points) == 0:
+        if not points:
             return 0
         # 去一下棱角
         points = talib.MA(np.array(points), 2)
@@ -596,7 +586,7 @@ class Strategy(ABC):
         if len(fxs) < 2:
             return 0
         # 按照大小排序
-        fxs = sorted(fxs, key=lambda f: f[1], reverse=True if position == 'up' else False)
+        fxs = sorted(fxs, key=lambda f: f[1], reverse=position == 'up')
 
         def jiaodu(_p1: list, _p2: list):
             # 计算斜率
@@ -626,12 +616,11 @@ class Strategy(ABC):
         }
         lines = cd.get_bis() if check_line == 'bi' else cd.get_xds()
         for _l in lines[::-1]:
-            if _l.start.k.date >= start_datetime:
-                line_mmds = _l.line_mmds()
-                for _m in line_mmds:
-                    mmd_infos[_m] += 1
-            else:
+            if _l.start.k.date < start_datetime:
                 break
+            line_mmds = _l.line_mmds()
+            for _m in line_mmds:
+                mmd_infos[_m] += 1
         return mmd_infos
 
     @staticmethod
@@ -700,12 +689,12 @@ def fee_a(opt: str, price: float, amount: float):
     """
     fee_rate = 0.3  # 单位 %
     min_fee = 5
-    yhs_rate = 0.1  # 印花税 单位 % 出让方（卖出）收取
     ghf_rate = 0.02  # 过户费 单位 % 双向收取
 
     trade_volume = price * amount
     fee_sum = max([min_fee, trade_volume * fee_rate / 100])
     if opt == 'sell':
+        yhs_rate = 0.1  # 印花税 单位 % 出让方（卖出）收取
         fee_sum += trade_volume * yhs_rate / 100
     fee_sum += trade_volume * ghf_rate / 100
     return fee_sum

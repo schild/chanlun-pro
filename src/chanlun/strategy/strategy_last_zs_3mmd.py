@@ -40,18 +40,18 @@ class StrategyLastZs3mmd(Strategy):
         # TODO 测试一下三类买卖点后的强分型成功率
         high_fx = high_data.get_fxs()[-1]
         if high_fx.type == 'di' and high_fx.ld() >= 5 \
-                and high_last_bi_zs.lines[1].mmd_exists(['3buy']) \
-                and high_fx.val > high_last_bi_zs.zd \
-                and last_price > high_fx.klines[-1].h:
+                    and high_last_bi_zs.lines[1].mmd_exists(['3buy']) \
+                    and high_fx.val > high_last_bi_zs.zd \
+                    and last_price > high_fx.klines[-1].h:
             opts.append(
                 Operation('buy', 'l3buy', high_fx.val, {'fx_datetime': high_last_done_bi.end.k.date},
                           '三买后强低分型买入')
             )
 
         if high_fx.type == 'ding' and high_fx.ld() >= 5 \
-                and high_last_bi_zs.lines[1].mmd_exists(['3sell']) \
-                and high_fx.val < high_last_bi_zs.zg \
-                and last_price < high_fx.klines[-1].l:
+                    and high_last_bi_zs.lines[1].mmd_exists(['3sell']) \
+                    and high_fx.val < high_last_bi_zs.zg \
+                    and last_price < high_fx.klines[-1].l:
             opts.append(
                 Operation('buy', 'l3sell', high_fx.val, {'fx_datetime': high_last_done_bi.end.k.date},
                           '三卖后强顶分型卖出')
@@ -64,51 +64,43 @@ class StrategyLastZs3mmd(Strategy):
         if high_last_done_bi.index != high_data.get_bis()[-1].index:
             return opts
 
-        if high_last_done_bi.type == 'down' and high_last_done_bi.low > high_last_bi_zs.zg:
             # 三类买点
             # 线根据线段过滤一下，线段要向下完成或者线上延伸才可以
-            if (high_last_xd.type == 'down' and high_last_xd.is_done()) \
-                    or (high_last_xd.type == 'up' and high_last_xd.is_done() is False):
-                # 中枢内部出现强底分型即可
-                exists_qfx = False
+        if (high_last_xd.type == 'down' and high_last_xd.is_done()) \
+                        or (high_last_xd.type == 'up' and high_last_xd.is_done() is False):
+            if high_last_done_bi.type == 'down' and high_last_done_bi.low > high_last_bi_zs.zg:
                 fxs = high_data.get_fxs()[high_last_bi_zs.lines[1].start.index:high_last_bi_zs.lines[-2].end.index + 1]
-                for fx in fxs:
-                    if fx.type == 'di' and fx.ld() >= 5:
-                        exists_qfx = True
-                        break
-                # 中枢内部笔没有出现过卖点（1、2类买卖点）
-                exists_sell_mmd = False
-                for line in high_last_bi_zs.lines:
-                    if line.mmd_exists(['1sell', '2sell']):
-                        exists_sell_mmd = True
-                        break
-                if exists_qfx is True and exists_sell_mmd is False \
-                        and last_price > high_last_done_bi.end.klines[-1].h:
+                exists_qfx = any(fx.type == 'di' and fx.ld() >= 5 for fx in fxs)
+                exists_sell_mmd = any(
+                    line.mmd_exists(['1sell', '2sell'])
+                    for line in high_last_bi_zs.lines
+                )
+                if (
+                    exists_qfx
+                    and not exists_sell_mmd
+                    and last_price > high_last_done_bi.end.klines[-1].h
+                ):
                     opts.append(
                         Operation('buy', '3buy', loss_price, {'fx_datetime': high_last_done_bi.end.k.date},
                                   '笔中枢三买')
                     )
 
-        if high_last_done_bi.type == 'up' and high_last_done_bi.high < high_last_bi_zs.zd:
             # 三类卖点
             # 线根据线段过滤一下，线段要向上完成或者线下延伸才可以
-            if (high_last_xd.type == 'up' and high_last_xd.is_done()) \
-                    or (high_last_xd.type == 'down' and high_last_xd.is_done() is False):
-                # 中枢内部出现强顶分型即可
-                exists_qfx = False
+        if (high_last_xd.type == 'up' and high_last_xd.is_done()) \
+                        or (high_last_xd.type == 'down' and high_last_xd.is_done() is False):
+            if high_last_done_bi.type == 'up' and high_last_done_bi.high < high_last_bi_zs.zd:
                 fxs = high_data.get_fxs()[high_last_bi_zs.lines[1].start.index:high_last_bi_zs.lines[-2].end.index + 1]
-                for fx in fxs:
-                    if fx.type == 'ding' and fx.ld() >= 5:
-                        exists_qfx = True
-                        break
-                # 中枢内部笔没有出现过买点（1、2类买卖点）
-                exists_buy_mmd = False
-                for line in high_last_bi_zs.lines:
-                    if line.mmd_exists(['1buy', '2buy']):
-                        exists_buy_mmd = True
-                        break
-                if exists_qfx is True and exists_buy_mmd is False \
-                        and last_price < high_last_done_bi.end.klines[-1].l:
+                exists_qfx = any(fx.type == 'ding' and fx.ld() >= 5 for fx in fxs)
+                exists_buy_mmd = any(
+                    line.mmd_exists(['1buy', '2buy'])
+                    for line in high_last_bi_zs.lines
+                )
+                if (
+                    exists_qfx
+                    and not exists_buy_mmd
+                    and last_price < high_last_done_bi.end.klines[-1].l
+                ):
                     opts.append(
                         Operation('buy', '3sell', loss_price, {'fx_datetime': high_last_done_bi.end.k.date},
                                   '笔中枢三卖')
@@ -125,9 +117,7 @@ class StrategyLastZs3mmd(Strategy):
 
         high_data = market_data.get_cl_data(code, market_data.frequencys[0])
         price = high_data.get_klines()[-1].c
-        # 检查是否触发止损操作
-        loss_opt = self.check_loss(mmd, pos, price)
-        if loss_opt:
+        if loss_opt := self.check_loss(mmd, pos, price):
             return loss_opt
 
         high_bi = self.last_done_bi(high_data.get_bis())
@@ -142,18 +132,18 @@ class StrategyLastZs3mmd(Strategy):
         # 笔出现卖点
         if 'buy' in mmd and high_bi.type == 'up' and self.bi_td(high_bi, high_data) and high_bi.mmd_exists(
                 ['1sell', '2sell', '3sell', 'l3sell']):
-            return Operation('sell', mmd, msg='高级别笔卖点（%s）' % high_bi.line_mmds())
+            return Operation('sell', mmd, msg=f'高级别笔卖点（{high_bi.line_mmds()}）')
         if 'sell' in mmd and high_bi.type == 'down' and self.bi_td(high_bi, high_data) and high_bi.bc_exists(
                 ['1buy', '2buy', '3buy', 'l3buy']):
-            return Operation('sell', mmd, msg='高级别笔买点（%s）' % high_bi.line_mmds())
+            return Operation('sell', mmd, msg=f'高级别笔买点（{high_bi.line_mmds()}）')
 
         # 高级别笔背驰
         if 'buy' in mmd and high_bi.type == 'up' and self.bi_td(high_bi, high_data) and \
-                high_bi.bc_exists(['pz', 'qs']):
-            return Operation('sell', mmd, msg='高级别笔背驰（%s）' % high_bi.line_bcs())
+                    high_bi.bc_exists(['pz', 'qs']):
+            return Operation('sell', mmd, msg=f'高级别笔背驰（{high_bi.line_bcs()}）')
         if 'sell' in mmd and high_bi.type == 'down' and self.bi_td(high_bi, high_data) and \
-                high_bi.bc_exists(['pz', 'qs']):
-            return Operation('sell', mmd, msg='高级别笔背驰（%s）' % high_bi.line_bcs())
+                    high_bi.bc_exists(['pz', 'qs']):
+            return Operation('sell', mmd, msg=f'高级别笔背驰（{high_bi.line_bcs()}）')
 
         # # 低级别笔出现一二类买卖点
         # if 'buy' in mmd and low_bi.mmd_exists(['1sell', '2sell']) and high_bi.type == 'up' and high_bi.is_done():

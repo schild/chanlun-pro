@@ -102,7 +102,7 @@ def xuangu_macd(context: Context):
     pos_symbols = [_p['symbol'] for _p in positions if _p['amount'] > 0]
     print(f'当前持仓股票列表：{pos_symbols}')
 
-    symbols = symbols + pos_symbols
+    symbols += pos_symbols
     symbols = list(set(symbols))
 
     # 进行重新订阅（取消之前的订阅）

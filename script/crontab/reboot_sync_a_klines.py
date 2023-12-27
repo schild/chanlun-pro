@@ -1265,14 +1265,12 @@ def sync_code(_code):
                         _code, f, start_date=last_dt, args={"fq": "hfq"}
                     )
 
-                tqdm.write(
-                    "Run code %s frequency %s klines len %s" % (_code, f, len(klines))
-                )
+                tqdm.write(f"Run code {_code} frequency {f} klines len {len(klines)}")
                 db_ex.insert_klines(_code, f, klines)
                 if len(klines) <= 100:
                     break
     except Exception as e:
-        tqdm.write("执行 %s 同步K线异常 %s" % (_code, str(e)))
+        tqdm.write(f"执行 {_code} 同步K线异常 {str(e)}")
         time.sleep(10)
 
 

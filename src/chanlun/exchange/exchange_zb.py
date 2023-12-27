@@ -24,7 +24,6 @@ class ExchangeZB(Exchange):
             params["apiKey"] = config.ZB_APIKEY
             params["secret"] = config.ZB_SECRET
 
-        if config.ZB_APIKEY != "":
             params["apiKey"] = config.ZB_APIKEY
             params["secret"] = config.ZB_SECRET
 
@@ -218,11 +217,9 @@ class ExchangeZB(Exchange):
             "close_short": {"side": "BUY", "positionSide": "SHORT"},
         }
         if o_type == "open_long":
-            order = self.exchange.create_market_buy_order(code, amount)
-            return order
+            return self.exchange.create_market_buy_order(code, amount)
         if o_type == "close_long":
-            order = self.exchange.create_market_sell_order(code, amount)
-            return order
+            return self.exchange.create_market_sell_order(code, amount)
         raise Exception("现货不支持做空")
 
     def stock_owner_plate(self, code: str):

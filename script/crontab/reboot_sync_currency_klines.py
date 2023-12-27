@@ -62,19 +62,16 @@ for code in tqdm(codes):
                             code, f, start_date=last_dt, args={"use_online": True}
                         )
 
-                    tqdm.write(
-                        "Run code %s frequency %s klines len %s"
-                        % (code, f, len(klines))
-                    )
+                    tqdm.write(f"Run code {code} frequency {f} klines len {len(klines)}")
                     exchange.insert_klines(code, f, klines)
                     if len(klines) <= 1:
                         break
                 except Exception as e:
-                    tqdm.write("执行 %s 同步K线异常" % code)
+                    tqdm.write(f"执行 {code} 同步K线异常")
                     tqdm.write(traceback.format_exc())
                     break
 
     except Exception as e:
-        tqdm.write("执行 %s 同步K线异常" % code)
+        tqdm.write(f"执行 {code} 同步K线异常")
         tqdm.write(e)
         tqdm.write(traceback.format_exc())

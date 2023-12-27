@@ -85,8 +85,10 @@ class ExchangeFutu(Exchange):
         __all_stocks = []
         ret, data = CTX().get_plate_stock("HK.BK1910")
         if ret == RET_OK:
-            for s in data.iterrows():
-                __all_stocks.append({"code": s[1]["code"], "name": s[1]["stock_name"]})
+            __all_stocks.extend(
+                {"code": s[1]["code"], "name": s[1]["stock_name"]}
+                for s in data.iterrows()
+            )
         self.g_all_stocks = __all_stocks
         return self.g_all_stocks
 
@@ -144,9 +146,7 @@ class ExchangeFutu(Exchange):
                     return None
             else:
                 if start_date is None and end_date is not None:
-                    time_format = "%Y-%m-%d %H:%M:%S"
-                    if len(end_date) == 10:
-                        time_format = "%Y-%m-%d"
+                    time_format = "%Y-%m-%d" if len(end_date) == 10 else "%Y-%m-%d %H:%M:%S"
                     end_datetime = dt.datetime(
                         *time.strptime(end_date, time_format)[:6]
                     )
@@ -154,12 +154,12 @@ class ExchangeFutu(Exchange):
                         start_date = (end_datetime - dt.timedelta(days=5)).strftime(
                             time_format
                         )
-                    elif frequency == "5m":
-                        start_date = (end_datetime - dt.timedelta(days=25)).strftime(
-                            time_format
-                        )
                     elif frequency == "30m":
                         start_date = (end_datetime - dt.timedelta(days=150)).strftime(
+                            time_format
+                        )
+                    elif frequency == "5m":
+                        start_date = (end_datetime - dt.timedelta(days=25)).strftime(
                             time_format
                         )
                     elif frequency == "d":

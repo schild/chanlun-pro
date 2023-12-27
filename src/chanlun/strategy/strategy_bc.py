@@ -21,7 +21,7 @@ class StrategyBc(Strategy):
         data = market_data.get_cl_data(code, market_data.frequencys[0])
         # 没有笔或中枢，退出
         if len(data.get_bis()) == 0 or len(data.get_bi_zss()) == 0 \
-                or len(data.get_xds()) == 0 or len(data.get_xd_zss()) == 0:
+                    or len(data.get_xds()) == 0 or len(data.get_xd_zss()) == 0:
             return opts
 
         xd = data.get_xds()[-1]
@@ -32,7 +32,7 @@ class StrategyBc(Strategy):
         price = data.get_klines()[-1].c
 
         if xd.type == bi.type and xd.end.index == bi.end.index \
-                and xd.bc_exists(['pz', 'qs']) and bi.bc_exists(['pz', 'qs']) and self.bi_td(bi, data):
+                    and xd.bc_exists(['pz', 'qs']) and bi.bc_exists(['pz', 'qs']) and self.bi_td(bi, data):
 
             if xd.type == 'up' and xd.bc_exists(['pz']):
                 mmd = 'up_pz_bc_sell'
@@ -45,25 +45,20 @@ class StrategyBc(Strategy):
             else:
                 return opts
 
-            if self._max_loss_rate is not None:
-                if 'buy' in mmd:
-                    loss_price = price - (price * (abs(self._max_loss_rate) / 100))
-                    loss_price = max(loss_price, bi.low)
-                else:
-                    loss_price = price + (price * (abs(self._max_loss_rate) / 100))
-                    loss_price = min(loss_price, bi.high)
+            if self._max_loss_rate is None:
+                loss_price = bi.low if 'buy' in mmd else bi.high
+            elif 'buy' in mmd:
+                loss_price = price - (price * (abs(self._max_loss_rate) / 100))
+                loss_price = max(loss_price, bi.low)
             else:
-                if 'buy' in mmd:
-                    loss_price = bi.low
-                else:
-                    loss_price = bi.high
-
+                loss_price = price + (price * (abs(self._max_loss_rate) / 100))
+                loss_price = min(loss_price, bi.high)
             opts.append(
                 Operation(
                     opt='buy',
                     mmd=mmd,
                     loss_price=loss_price,
-                    msg='线段背驰 %s 笔背驰 %s 止损价格 %s' % (xd.line_bcs(), bi.line_bcs(), loss_price),
+                    msg=f'线段背驰 {xd.line_bcs()} 笔背驰 {bi.line_bcs()} 止损价格 {loss_price}',
                     info={
                         'fx_datetime': bi.end.k.date,
                         'cl_datas': {
@@ -88,13 +83,14 @@ class StrategyBc(Strategy):
         price = data.get_klines()[-1].c
 
         # 止盈止损检查
-        if 'buy' in mmd:
-            if price < pos.loss_price:
-                return Operation('sell', mmd, msg='%s 止损' % mmd)
-        elif 'sell' in mmd:
-            if price > pos.loss_price:
-                return Operation('sell', mmd, msg='%s 止损' % mmd)
-
+        if (
+            'buy' in mmd
+            and price < pos.loss_price
+            or 'buy' not in mmd
+            and 'sell' in mmd
+            and price > pos.loss_price
+        ):
+            return Operation('sell', mmd, msg=f'{mmd} 止损')
         xd = data.get_xds()[-1]
         bi = data.get_bis()[-1]
         if bi.is_done() is False:
@@ -103,20 +99,20 @@ class StrategyBc(Strategy):
         if 'buy' in mmd and xd.type == 'up':
             # 买入做多，检查卖点
             if xd.type == bi.type and xd.end.index == bi.end.index \
-                    and (xd.bc_exists(['pz', 'xd', 'qs']) or bi.bc_exists(['pz', 'qs'])) and self.bi_td(bi, data):
+                        and (xd.bc_exists(['pz', 'xd', 'qs']) or bi.bc_exists(['pz', 'qs'])) and self.bi_td(bi, data):
                 return Operation(
                     opt='sell',
                     mmd=mmd,
-                    msg='%s 线段背驰 %s 笔背驰 %s，多仓清仓' % (mmd, xd.line_bcs(), bi.line_bcs())
+                    msg=f'{mmd} 线段背驰 {xd.line_bcs()} 笔背驰 {bi.line_bcs()}，多仓清仓',
                 )
         if 'sell' in mmd and xd.type == 'down':
             # 卖出做空，检查买点
             if xd.type == bi.type and xd.end.index == bi.end.index \
-                    and (xd.bc_exists(['pz', 'xd', 'qs']) or bi.bc_exists(['pz', 'qs'])) and self.bi_td(bi, data):
+                        and (xd.bc_exists(['pz', 'xd', 'qs']) or bi.bc_exists(['pz', 'qs'])) and self.bi_td(bi, data):
                 return Operation(
                     opt='sell',
                     mmd=mmd,
-                    msg='%s 线段背驰 %s 笔背驰 %s，空仓清仓' % (mmd, xd.line_bcs(), bi.line_bcs())
+                    msg=f'{mmd} 线段背驰 {xd.line_bcs()} 笔背驰 {bi.line_bcs()}，空仓清仓',
                 )
 
         return None

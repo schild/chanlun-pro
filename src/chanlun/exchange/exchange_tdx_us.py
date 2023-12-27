@@ -121,11 +121,7 @@ class ExchangeTDXUS(Exchange):
         """
         if args is None:
             args = {}
-        if "pages" not in args.keys():
-            args["pages"] = 5
-        else:
-            args["pages"] = int(args["pages"])
-
+        args["pages"] = 5 if "pages" not in args.keys() else int(args["pages"])
         if "fq_type" not in args.keys():
             args["fq_type"] = "qfq"
 
@@ -210,7 +206,7 @@ class ExchangeTDXUS(Exchange):
                 ["code", "date", "open", "close", "high", "low", "volume"]
             ]
 
-            if frequency in ["10m", "2m"]:
+            if frequency in {"10m", "2m"}:
                 klines_df = convert_us_tdx_kline_frequency(klines_df, frequency)
 
             if args["fq_type"] == "qfq":
@@ -245,10 +241,10 @@ class ExchangeTDXUS(Exchange):
         获取股票名称
         """
         all_stock = self.all_stocks()
-        stock = [_s for _s in all_stock if _s["code"] == code]
-        if not stock:
+        if stock := [_s for _s in all_stock if _s["code"] == code]:
+            return {"code": stock[0]["code"], "name": stock[0]["name"]}
+        else:
             return None
-        return {"code": stock[0]["code"], "name": stock[0]["name"]}
 
     def ticks(self, codes: List[str]) -> Dict[str, Tick]:
         """
@@ -302,11 +298,9 @@ class ExchangeTDXUS(Exchange):
         weekday = now.weekday()
         hour = now.hour
         minute = now.minute
-        if weekday in [0, 1, 2, 3, 4] and (
+        return weekday in {0, 1, 2, 3, 4} and (
             (10 <= hour < 16) or (hour == 9 and minute >= 30)
-        ):
-            return True
-        return False
+        )
 
     def klines_qfq(self, code: str, klines: pd.DataFrame):
         try:

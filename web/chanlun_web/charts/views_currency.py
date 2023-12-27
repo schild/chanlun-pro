@@ -129,11 +129,7 @@ def pos_close(request):
         return utils.json_error("当前没有持仓信息")
 
     pos = pos[0]
-    if pos["side"] == "short":
-        trade_type = "close_short"
-    else:
-        trade_type = "close_long"
-
+    trade_type = "close_short" if pos["side"] == "short" else "close_long"
     res = ex.order(code, trade_type, pos["contracts"])
     if res is False:
         return utils.json_error("手动平仓失败")

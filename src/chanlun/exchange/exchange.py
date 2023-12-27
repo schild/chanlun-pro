@@ -168,13 +168,13 @@ def convert_stock_kline_frequency(klines: pd.DataFrame, to_f: str) -> pd.DataFra
         "w": "W",
         "m": "M",
     }
-    if to_f in period_maps.keys():
+    if to_f in period_maps:
         klines.insert(0, column="date_index", value=klines["date"])
         klines.set_index("date_index", inplace=True)
         period_type = period_maps[to_f]
 
         # 通达信的时间对其方式，日线及以下是后对其，周与月是前对其（周、月的第一个交易日）
-        if to_f in ["w", "m"]:
+        if to_f in {"w", "m"}:
             period_klines = klines.resample(
                 period_type, label="left", closed="right"
             ).first()
@@ -203,12 +203,12 @@ def convert_stock_kline_frequency(klines: pd.DataFrame, to_f: str) -> pd.DataFra
         period_klines.drop("date_index", axis=1, inplace=True)
         # 后对其的，最后一个k线的时间不是未来的结束时间，需要特殊处理一下
         # 周期是 d、w、m，将时间设置为 15点收盘时间
-        if to_f in ["d", "w", "m"]:
+        if to_f in {"d", "w", "m"}:
             period_klines["date"] = period_klines["date"].map(
                 lambda d: d.replace(hour=15, minute=0)
             )
 
-        if to_f in ["5m", "10m", "15m", "30m"]:
+        if to_f in {"5m", "10m", "15m", "30m"}:
 
             def lts_time(d: datetime.datetime):
                 dt_int = datetime_to_int(d)
@@ -255,7 +255,7 @@ def convert_stock_kline_frequency(klines: pd.DataFrame, to_f: str) -> pd.DataFra
         new_dt = dt_to_new_dt(freq_config_maps[to_f], dt)
         if new_dt is None:
             raise Exception(f"转换时间错误：{to_f}, {dt}")
-        if new_dt in new_kline.keys():
+        if new_dt in new_kline:
             n_k = new_kline[new_dt]
             n_k["high"] = max(n_k["high"], k["high"])
             n_k["low"] = min(n_k["low"], k["low"])
@@ -347,7 +347,7 @@ def convert_futures_kline_frequency(
         "w": "W",
         "m": "M",
     }
-    if to_f in period_maps.keys():
+    if to_f in period_maps:
         klines.insert(0, column="date_index", value=klines["date"])
         klines.set_index("date_index", inplace=True)
         period_type = period_maps[to_f]
@@ -373,7 +373,7 @@ def convert_futures_kline_frequency(
         period_klines.dropna(inplace=True)
         period_klines.reset_index(inplace=True)
         period_klines.drop("date_index", axis=1, inplace=True)
-        if to_f in ["1m", "3m", "5m", "6m", "10m", "15m"]:
+        if to_f in {"1m", "3m", "5m", "6m", "10m", "15m"}:
 
             def bts_time(d: datetime.datetime):
                 dt_int = datetime_to_int(d)
@@ -486,7 +486,7 @@ def convert_futures_kline_frequency(
         new_dt = dt_to_new_dt(freq_config_maps[to_f], dt)
         if new_dt is None:
             raise Exception(f"转换时间错误：{to_f}, {dt}")
-        if new_dt in new_kline.keys():
+        if new_dt in new_kline:
             n_k = new_kline[new_dt]
             n_k["high"] = max(n_k["high"], k["high"])
             n_k["low"] = min(n_k["low"], k["low"])
